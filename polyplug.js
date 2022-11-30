@@ -309,10 +309,36 @@ const polyplug = function() {
         return patch(oldNode, newNode) || changed;
     }
 
+    /**************************************************************************
+    DOM reference functions for PolyPlug.
+    **************************************************************************/
+
+    function getElements(q) {
+        /*
+        Return an HTML element[s] matching the query object "q".
+
+        In order of precedence, the function will try to find results by id or
+        tag or classname or CSS selector (but not a combination thereof).
+
+        If no matches found, returns null.
+        */
+        if (q.id) {
+            return document.getElementById(q.id);
+        } else if (q.tag) {
+            return document.getElementsByTagName(q.tag);
+        } else if (q.classname) {
+            return document.getElementsByClassName(q.classname);
+        } else if (q.css) {
+            return document.querySelectorAll(q.css);
+        }
+        return null;  // Explicit > implicit. ;-)
+    }
+
     return {
         toJSON: toJSON,
         toDOM: toDOM,
-        mutate: mutate
+        mutate: mutate,
+        getElements: getElements
     }
 };
 

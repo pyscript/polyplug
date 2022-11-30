@@ -250,4 +250,28 @@ describe("When working with PolyPlug,", function() {
         expect(is_changed).toEqual(false);
       });
     });
+    describe("when getting elements from the DOM,", function() {
+      it("matching by id returns the expected element", function() {
+        const result = plug.getElements({id: "testParaID"});
+        expect(result.id).toEqual("testParaID");
+        expect(result.tagName).toEqual("P");
+      });
+      it("matching by tag returns the expected elements", function() {
+        const result = plug.getElements({tag: "p"});
+        expect(result.length).toEqual(2);
+      });
+      it("matching by class returns the expected elements", function() {
+        const result = plug.getElements({classname: "testParaClass"});
+        expect(result.length).toEqual(1);
+        expect(result[0].className).toEqual("testParaClass");
+      });
+      it("matching by CSS selector returns the expected elements", function() {
+        const result = plug.getElements({css: "p.testParaClass"});
+        expect(result.length).toEqual(1);
+        expect(result[0].className).toEqual("testParaClass");
+      });
+      it("non valid query returns null", function() {
+        expect(plug.getElements({})).toEqual(null);
+      });
+    });
 });
