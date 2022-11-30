@@ -283,7 +283,6 @@ describe("When working with PolyPlug,", function() {
       it("raises the expected polyplugSend event with the event context", function(done) {
         document.addEventListener("polyplugSend", function(e) {
             const detail = JSON.parse(e.detail);
-            console.log(detail);
             expect(detail.type).toEqual("click");
             expect(detail.listener).toEqual("myTestClicker");
             expect(detail.target).toEqual({
