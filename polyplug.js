@@ -350,7 +350,7 @@ const polyplug = function() {
         Register an event listener, given:
 
         * target element[s] via a query object (see getElements),
-        * the event type (e.g. "onClick"), and,
+        * the event type (e.g. "click"), and,
         * the name of the listener to call in the remote interpreter.
 
         The handler function is called by dispatching a polyplugSend event
