@@ -253,8 +253,13 @@ describe("When working with PolyPlug,", function() {
     describe("when getting elements from the DOM,", function() {
       it("matching by id returns the expected element", function() {
         const result = plug.getElements({id: "testParaID"});
-        expect(result.id).toEqual("testParaID");
-        expect(result.tagName).toEqual("P");
+        expect(result.length).toEqual(1);
+        expect(result[0].id).toEqual("testParaID");
+        expect(result[0].tagName).toEqual("P");
+      });
+      it("an unmatched id returns an empty array", function() {
+        const result = plug.getElements({id: "testParaIDFake"});
+        expect(result.length).toEqual(0);
       });
       it("matching by tag returns the expected elements", function() {
         const result = plug.getElements({tag: "p"});
@@ -272,6 +277,36 @@ describe("When working with PolyPlug,", function() {
       });
       it("non valid query returns null", function() {
         expect(plug.getElements({})).toEqual(null);
+      });
+    });
+    describe("when registering events in the DOM,", function() {
+      it("raises the expected polyplugSend event with the event context", function(done) {
+        document.addEventListener("polyplugSend", function(e) {
+            const detail = JSON.parse(e.detail);
+            console.log(detail);
+            expect(detail.type).toEqual("click");
+            expect(detail.listener).toEqual("myTestClicker");
+            expect(detail.target).toEqual({
+              "nodeType": 1,
+              "tagName": "button",
+              "attributes": {
+                "id": "testButton"
+              },
+              "childNodes": [
+                {
+                  "nodeType": 3,
+                  "nodeName": "#text",
+                  "nodeValue": "Click Me",
+                  "childNodes": []
+                }
+              ]
+            });
+            done()
+        })
+        plug.registerEvent({id: "testButton"}, "click", "myTestClicker");
+        const button = plug.getElements({id: "testButton"})[0];
+        const clickEvent = new Event("click");
+        button.dispatchEvent(clickEvent);
       });
     });
 });

@@ -315,7 +315,7 @@ const polyplug = function() {
 
     function getElements(q) {
         /*
-        Return an HTML element[s] matching the query object "q".
+        Return a collection of HTML element[s] matching the query object "q".
 
         In order of precedence, the function will try to find results by id or
         tag or classname or CSS selector (but not a combination thereof).
@@ -323,7 +323,14 @@ const polyplug = function() {
         If no matches found, returns null.
         */
         if (q.id) {
-            return document.getElementById(q.id);
+            // getElementById doesn't return a collection, hence wrapping the
+            // result as an array, for the sake of consistency.
+            const result = [];
+            const element = document.getElementById(q.id);
+            if (element) {
+                result.push(element);
+            }
+            return result;
         } else if (q.tag) {
             return document.getElementsByTagName(q.tag);
         } else if (q.classname) {
@@ -334,11 +341,45 @@ const polyplug = function() {
         return null;  // Explicit > implicit. ;-)
     }
 
+    /**************************************************************************
+    Event handling functions for PolyPlug.
+    **************************************************************************/
+
+    function registerEvent(query, type, listener) {
+        /*
+        Register an event listener, given:
+
+        * target element[s] via a query object (see getElements),
+        * the event type (e.g. "onClick"), and,
+        * the name of the listener to call in the remote interpreter.
+
+        The handler function is called by dispatching a polyplugSend event
+        with details of the event encoded as a JSON string.
+
+        Depending upon how the remote interpreter is run (on the main thread,
+        in a web worker, etc), this event should be handled to call the
+        expected function in the most appropriate way.
+        */
+        const elements = getElements(query);
+        elements.forEach(function(element) {
+            element.addEventListener(type, function(e) {
+                const detail = JSON.stringify({
+                    type: e.type,
+                    target: toJS(e.target),
+                    listener: listener
+                });
+                const send = new CustomEvent("polyplugSend", {detail: detail});
+                document.dispatchEvent(send);
+            });
+        });
+    }
+
     return {
         toJSON: toJSON,
         toDOM: toDOM,
         mutate: mutate,
-        getElements: getElements
+        getElements: getElements,
+        registerEvent: registerEvent
     }
 };
 
