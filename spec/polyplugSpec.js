@@ -281,7 +281,7 @@ describe("When working with PolyPlug,", function() {
     });
     describe("when registering events in the DOM,", function() {
       it("raises the expected polyplugSend event with the event context", function(done) {
-        document.addEventListener("polyplugSend", function(e) {
+        function eventListener(e) {
             const detail = JSON.parse(e.detail);
             expect(detail.type).toEqual("click");
             expect(detail.listener).toEqual("myTestClicker");
@@ -300,12 +300,14 @@ describe("When working with PolyPlug,", function() {
                 }
               ]
             });
-            done()
-        })
+            done();
+        }
+        document.addEventListener("polyplugSend", eventListener);
         plug.registerEvent({id: "testButton"}, "click", "myTestClicker");
         const button = plug.getElements({id: "testButton"})[0];
         const clickEvent = new Event("click");
         button.dispatchEvent(clickEvent);
+        document.removeEventListener("polyplugSend", eventListener);
       });
     });
     describe("when handling incoming messages,", function() {
@@ -348,6 +350,88 @@ describe("When working with PolyPlug,", function() {
         const actual = plug.toJSON(updatedDIV);
         const expected = JSON.stringify(target);
         expect(actual).toEqual(expected);
+      });
+      it("the registerEvent message registers an event", function(done) {
+        const msg = JSON.stringify({
+            type: "registerEvent",
+            query: {
+                id: "testButton2"
+            },
+            eventType: "click",
+            listener: "my_on_click_function"
+        });
+        plug.receiveMessage(msg);
+        function eventListener(e) {
+            const detail = JSON.parse(e.detail);
+            expect(detail.type).toEqual("click");
+            expect(detail.listener).toEqual("my_on_click_function");
+            expect(detail.target).toEqual({
+              "nodeType": 1,
+              "tagName": "button",
+              "attributes": {
+                "id": "testButton2"
+              },
+              "childNodes": [
+                {
+                  "nodeType": 3,
+                  "nodeName": "#text",
+                  "nodeValue": "Click Me Again",
+                  "childNodes": []
+                }
+              ]
+            });
+            done();
+        }
+        document.addEventListener("polyplugSend", eventListener);
+        const button = plug.getElements({id: "testButton2"})[0];
+        const clickEvent = new Event("click");
+        button.dispatchEvent(clickEvent);
+        document.removeEventListener("polyplugSend", eventListener);
+      });
+      it("the stdout message dispatches a polyplugStdout event", function(done) {
+        function eventListener(e) {
+            expect(e.detail).toEqual("Hello, world");
+            done();
+        }
+        document.addEventListener("polyplugStdout", eventListener);
+        const msg = JSON.stringify({
+            type: "stdout",
+            content: "Hello, world"
+        });
+        plug.receiveMessage(msg);
+        document.removeEventListener("polyplugStdout", eventListener);
+      });
+      it("the stderr message dispatches a polyplugStdout event", function(done) {
+        function eventListener(e) {
+            expect(e.detail).toEqual("Hello, stderr");
+            done();
+        }
+        document.addEventListener("polyplugStderr", eventListener);
+        const msg = JSON.stringify({
+            type: "stderr",
+            content: "Hello, stderr"
+        });
+        plug.receiveMessage(msg);
+        document.removeEventListener("polyplugStderr", eventListener);
+      });
+      it("the error message dispatches a polyplugErrorevent", function(done) {
+        // Arbitrary error context from the remote interpreter.
+        const errorContext = {
+            exception: "ValueError",
+            message: "The thing went bang!",
+            stackTrace: ["frame1", "frame2", "frame3" ]
+        }
+        function eventListener(e) {
+            expect(e.detail).toEqual(errorContext);
+            done();
+        }
+        document.addEventListener("polyplugError", eventListener);
+        const msg = JSON.stringify({
+            type: "error",
+            context: errorContext
+        });
+        plug.receiveMessage(msg);
+        document.removeEventListener("polyplugError", eventListener);
       });
     });
 });

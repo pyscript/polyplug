@@ -472,6 +472,7 @@ const polyplug = function() {
         }
         */
         const polyplugStdout = new CustomEvent("polyplugStdout", {detail: msg.content});
+        document.dispatchEvent(polyplugStdout);
     }
 
     function onStderr(msg) {
@@ -489,6 +490,7 @@ const polyplug = function() {
         }
         */
         const polyplugStderr = new CustomEvent("polyplugStderr", {detail: msg.content});
+        document.dispatchEvent(polyplugStderr);
     }
 
     function onError(msg) {
@@ -508,7 +510,8 @@ const polyplug = function() {
             }
         }
         */
-        const polyplugError = new CustomEvent("polyplugError", {detail: msg});
+        const polyplugError = new CustomEvent("polyplugError", {detail: msg.context});
+        document.dispatchEvent(polyplugError);
     }
 
     return {
