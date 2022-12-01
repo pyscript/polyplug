@@ -345,7 +345,7 @@ const polyplug = function() {
     Event handling functions for PolyPlug.
     **************************************************************************/
 
-    function registerEvent(query, type, listener) {
+    function registerEvent(query, eventType, listener) {
         /*
         Register an event listener, given:
 
@@ -362,7 +362,7 @@ const polyplug = function() {
         */
         const elements = getElements(query);
         elements.forEach(function(element) {
-            element.addEventListener(type, function(e) {
+            element.addEventListener(eventType, function(e) {
                 const detail = JSON.stringify({
                     type: e.type,
                     target: toJS(e.target),
@@ -374,12 +374,150 @@ const polyplug = function() {
         });
     }
 
+    /**************************************************************************
+    Message handling functions for PolyPlug.
+    **************************************************************************/
+
+    function receiveMessage(raw) {
+        /*
+        Receive a raw message string (containing JSON). Deserialize it and
+        dispatch the message to the appropriate handler function.
+        */
+        const message = JSON.parse(raw);
+        switch (message.type) {
+            case "updateDOM":
+                onUpdateDOM(message);
+                break;
+            case "registerEvent":
+                onRegisterEvent(message);
+                break;
+            case "stdout":
+                onStdout(message);
+                break;
+            case "stderr":
+                onStderr(message);
+                break;
+            case "error":
+                onError(message);
+                break;
+            default:
+                console.log("Unknown message type.")
+                console.log(message)
+                break;
+        }
+    }
+
+    function onUpdateDOM(msg) {
+        /*
+        Handle messages from an interpreter to update the DOM.
+
+        Given a query to identify a target element, mutate it to the target
+        state (encoded as JSON).
+
+        Sample message:
+
+        msg = {
+            type: "updateDOM",
+            query: {
+              id: "idOfDomElementToMutate"
+            },
+            target: {
+                ... JSON representation of the target state ...
+            }
+        }
+        */
+        const elements = getElements(msg.query);
+        if (elements.length === 1) {
+            // Update the single valid match to 
+            const oldElement = elements[0];
+            const newElement = toNode(msg.target)
+            mutate(oldElement, newElement);
+        }
+    }
+
+    function onRegisterEvent(msg) {
+        /*
+        Handle requests from an interpreter to register an event listener.
+
+        Given a query to identify target element[s], listen for the event type
+        and handle with the referenced listener function in the remote
+        interpreter.
+
+        Sample message:
+
+        msg = {
+            type: "registerEvent",
+            query: {
+                id: "idOfDomElement"
+            },
+            eventType: "click",
+            listener: "my_on_click_function"
+        }
+        */
+        registerEvent(msg.query, msg.eventType, msg.listener);
+    }
+
+    function onStdout(msg) {
+        /*
+        Handle "normal" STDOUT output.
+
+        Simply dispatch a "polyplugStdout" custom event with the event's detail
+        containing the emitted characters.
+
+        Sample message:
+
+        msg = {
+            type: "stdout",
+            content: "Some stuff to print to the terminal"
+        }
+        */
+        const polyplugStdout = new CustomEvent("polyplugStdout", {detail: msg.content});
+    }
+
+    function onStderr(msg) {
+        /*
+        Handle "normal" STDERR output.
+
+        Simply dispatch a "polyplugStderr" custom event with the event's detail
+        containing the emitted characters.
+
+        Sample message:
+
+        msg = {
+            type: "stderr",
+            content: "Some stuff from stderr"
+        }
+        */
+        const polyplugStderr = new CustomEvent("polyplugStderr", {detail: msg.content});
+    }
+
+    function onError(msg) {
+        /*
+        Handle generic error conditions from the interpreter.
+
+        Dispatch a "polyplugError" custom event with the event detail set to
+        the error context.
+
+        Sample message:
+
+        msg = {
+            type: "error",
+            context: {
+                ... arbitrary data about the error condition ...
+                (e.g. Exception name, line number, stack trace etc)
+            }
+        }
+        */
+        const polyplugError = new CustomEvent("polyplugError", {detail: msg});
+    }
+
     return {
         toJSON: toJSON,
         toDOM: toDOM,
         mutate: mutate,
         getElements: getElements,
-        registerEvent: registerEvent
+        registerEvent: registerEvent,
+        receiveMessage: receiveMessage
     }
 };
 

@@ -308,4 +308,46 @@ describe("When working with PolyPlug,", function() {
         button.dispatchEvent(clickEvent);
       });
     });
+    describe("when handling incoming messages,", function() {
+      it("the updateDOM message calls the expected mutate", function() {
+        const target = {
+          "nodeType": 1,
+          "tagName": "div",
+          "attributes": {
+            "id": "testMutate"
+          },
+          "childNodes": [
+            {
+              "nodeType": 1,
+              "tagName": "h1",
+              "attributes": {
+                "class": "testClass"
+              },
+              "childNodes": [
+                {
+                  "nodeType": 3,
+                  "nodeName": "#text",
+                  "nodeValue": "This is a test, updated via morphing.",
+                  "childNodes": []
+                }
+              ]
+            }
+          ]
+        };
+        const msg = JSON.stringify({
+            type: "updateDOM",
+            query: {
+                id: "testMutate"
+            },
+            target: target
+        });
+        // Process the message.
+        plug.receiveMessage(msg);
+        // The DOM has been updated as expected.
+        const updatedDIV = plug.getElements({id: "testMutate"})[0];
+        const actual = plug.toJSON(updatedDIV);
+        const expected = JSON.stringify(target);
+        expect(actual).toEqual(expected);
+      });
+    });
 });
