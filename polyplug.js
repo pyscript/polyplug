@@ -40,7 +40,7 @@ const polyplug = function() {
     Serialization functions for PolyPlug.
     **************************************************************************/
 
-    function toJS(node) {
+    function nodeToJS(node) {
         /*
         Takes a node in the DOM and recursively converts it and its children
         into a JSON encodable JavaScript object.
@@ -88,7 +88,7 @@ const polyplug = function() {
         // since their content is supposed to be defined via their "value".
         if (obj.tagName !== 'textarea' && childNodes && childNodes.length > 0) {
             for (let i=0; i<childNodes.length; i++) {
-                const child = toJS(childNodes[i]);
+                const child = nodeToJS(childNodes[i]);
                 if (!(child.nodeValue && child.nodeValue.trim() === "")) {
                     childNodesJS.push(child);
                 }
@@ -98,14 +98,7 @@ const polyplug = function() {
         return obj;
     }
 
-    function toJSON(node) {
-        /*
-        Takes a node in the DOM and serialises it into JSON.
-        */
-        return JSON.stringify(toJS(node));
-    }
-
-    function toNode(obj) {
+    function jsToNode(obj) {
         /*
         Takes a JavaScript object and returns the equivalent HTML node.
 
@@ -160,18 +153,10 @@ const polyplug = function() {
         // since their content is supposed to be defined via their "value".)
         if (obj.tagName !== 'textarea' && obj.childNodes && obj.childNodes.length > 0) {
             for (const childNode of obj.childNodes) {
-                node.appendChild(toNode(childNode));
+                node.appendChild(jsToNode(childNode));
             }
         }
         return node;
-    }
-
-    function toDOM(jsonString) {
-        /*
-        Takes a JSON string and returns an equivalent HTML node to merge into
-        the DOM.
-        */
-        return toNode(JSON.parse(jsonString));
     }
 
     /**************************************************************************
@@ -365,7 +350,7 @@ const polyplug = function() {
             element.addEventListener(eventType, function(e) {
                 const detail = JSON.stringify({
                     type: e.type,
-                    target: toJS(e.target),
+                    target: nodeToJS(e.target),
                     listener: listener
                 });
                 const send = new CustomEvent("polyplugSend", {detail: detail});
@@ -430,7 +415,7 @@ const polyplug = function() {
         if (elements.length === 1) {
             // Update the single valid match to 
             const oldElement = elements[0];
-            const newElement = toNode(msg.target)
+            const newElement = jsToNode(msg.target)
             mutate(oldElement, newElement);
         }
     }
@@ -515,8 +500,8 @@ const polyplug = function() {
     }
 
     return {
-        toJSON: toJSON,
-        toDOM: toDOM,
+        nodeToJS: nodeToJS,
+        jsToNode: jsToNode,
         mutate: mutate,
         getElements: getElements,
         registerEvent: registerEvent,

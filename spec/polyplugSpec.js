@@ -7,7 +7,7 @@ describe("When working with PolyPlug,", function() {
         plug = polyplug();
     });
 
-    describe("when serializing to or from the DOM,", function() {
+    describe("when serializing to or from JS/HTML nodes,", function() {
 
       beforeEach(function() {
         // A fragment of HTML containing various generic elements we'll use to
@@ -30,150 +30,143 @@ describe("When working with PolyPlug,", function() {
           <li>b</li>
           <li>c</li>
         </ul>`;
-        jsonString = `{
-      "nodeType": 1,
-      "tagName": "div",
-      "attributes": {
-        "id": "test-node",
-        "style": "font-weight: bold;",
-        "custom-attribute": ""
-      },
-      "childNodes": [
-        {
+        jsRepresentation = {
           "nodeType": 1,
-          "tagName": "p",
-          "childNodes": [
-            {
-              "nodeType": 3,
-              "nodeName": "#text",
-              "nodeValue": "Textual content.",
-              "childNodes": []
-            }
-          ]
-        },
-        {
-          "nodeType": 8,
-          "nodeName": "#comment",
-          "nodeValue": " A comment ",
-          "childNodes": []
-        },
-        {
-          "nodeType": 1,
-          "tagName": "form",
-          "childNodes": [
-            {
-              "nodeType": 1,
-              "tagName": "label",
-              "attributes": {
-                "for": "testInput"
-              },
-              "childNodes": [
-                {
-                  "nodeType": 3,
-                  "nodeName": "#text",
-                  "nodeValue": "Test Input",
-                  "childNodes": []
-                }
-              ]
-            },
-            {
-              "nodeType": 1,
-              "tagName": "input",
-              "attributes": {
-                "type": "text",
-                "name": "testInput",
-                "value": "test"
-              },
-              "childNodes": []
-            },
-            {
-              "nodeType": 1,
-              "tagName": "textarea",
-              "value": "Some free text content...",
-              "childNodes": []
-            },
-            {
-              "nodeType": 1,
-              "tagName": "input",
-              "attributes": {
-                "type": "submit",
-                "value": "Submit"
-              },
-              "childNodes": []
-            }
-          ]
-        },
-        {
-          "nodeType": 1,
-          "tagName": "ul",
+          "tagName": "div",
           "attributes": {
-            "id": "list"
+            "id": "test-node",
+            "style": "font-weight: bold;",
+            "custom-attribute": ""
           },
           "childNodes": [
             {
               "nodeType": 1,
-              "tagName": "li",
+              "tagName": "p",
               "childNodes": [
                 {
                   "nodeType": 3,
                   "nodeName": "#text",
-                  "nodeValue": "a",
+                  "nodeValue": "Textual content.",
+                  "childNodes": []
+                }
+              ]
+            },
+            {
+              "nodeType": 8,
+              "nodeName": "#comment",
+              "nodeValue": " A comment ",
+              "childNodes": []
+            },
+            {
+              "nodeType": 1,
+              "tagName": "form",
+              "childNodes": [
+                {
+                  "nodeType": 1,
+                  "tagName": "label",
+                  "attributes": {
+                    "for": "testInput"
+                  },
+                  "childNodes": [
+                    {
+                      "nodeType": 3,
+                      "nodeName": "#text",
+                      "nodeValue": "Test Input",
+                      "childNodes": []
+                    }
+                  ]
+                },
+                {
+                  "nodeType": 1,
+                  "tagName": "input",
+                  "attributes": {
+                    "type": "text",
+                    "name": "testInput",
+                    "value": "test"
+                  },
+                  "childNodes": []
+                },
+                {
+                  "nodeType": 1,
+                  "tagName": "textarea",
+                  "value": "Some free text content...",
+                  "childNodes": []
+                },
+                {
+                  "nodeType": 1,
+                  "tagName": "input",
+                  "attributes": {
+                    "type": "submit",
+                    "value": "Submit"
+                  },
                   "childNodes": []
                 }
               ]
             },
             {
               "nodeType": 1,
-              "tagName": "li",
+              "tagName": "ul",
+              "attributes": {
+                "id": "list"
+              },
               "childNodes": [
                 {
-                  "nodeType": 3,
-                  "nodeName": "#text",
-                  "nodeValue": "b",
-                  "childNodes": []
-                }
-              ]
-            },
-            {
-              "nodeType": 1,
-              "tagName": "li",
-              "childNodes": [
+                  "nodeType": 1,
+                  "tagName": "li",
+                  "childNodes": [
+                    {
+                      "nodeType": 3,
+                      "nodeName": "#text",
+                      "nodeValue": "a",
+                      "childNodes": []
+                    }
+                  ]
+                },
                 {
-                  "nodeType": 3,
-                  "nodeName": "#text",
-                  "nodeValue": "c",
-                  "childNodes": []
+                  "nodeType": 1,
+                  "tagName": "li",
+                  "childNodes": [
+                    {
+                      "nodeType": 3,
+                      "nodeName": "#text",
+                      "nodeValue": "b",
+                      "childNodes": []
+                    }
+                  ]
+                },
+                {
+                  "nodeType": 1,
+                  "tagName": "li",
+                  "childNodes": [
+                    {
+                      "nodeType": 3,
+                      "nodeName": "#text",
+                      "nodeValue": "c",
+                      "childNodes": []
+                    }
+                  ]
                 }
               ]
             }
           ]
-        }
-      ]
-    }`;
+        };
       });
 
-      describe("the toJSON function,", function() {
-        it("takes an HTML node and returns an accurate string of JSON", function() {
-          const result = plug.toJSON(node);
-          // Ensure we get a string...
-          expect(result).toBeInstanceOf(String);
-          // that is valid JSON...
-          const fromJSON = JSON.parse(result);
-          // of the expected shape.
-          const expectedObject = JSON.parse(jsonString);
-          expect(fromJSON).toEqual(expectedObject);
+      describe("the nodeToJSON function,", function() {
+        it("takes an HTML node and returns a (JSON serializable) JS object", function() {
+          const result = plug.nodeToJS(node);
+          // is JS that's serializable to JSON...
+          const jsonResult = JSON.stringify(result);
+          // and of the expected shape.
+          expect(result).toEqual(jsRepresentation);
         });
       });
       
-      describe("the toDOM function,", function() {
-        it("takes a JSON string and returns the expected DOM fragment", function() {
-          const domResult = plug.toDOM(jsonString);
-          // Because the JSON serialization removes extraneous things like
-          // newlines (so the node object and domResult won't be the same), just
-          // re-serialize to JSON to check they're the same.
-          const jsonResult = plug.toJSON(domResult);
-          const expectedObject = plug.toJSON(node);
-          expect(jsonResult).toEqual(expectedObject);
+      describe("the jsToNode function,", function() {
+        it("takes a JS object and returns the expected DOM fragment", function() {
+          const domResult = plug.jsToNode(jsRepresentation);
+          const jsonResult = plug.nodeToJS(domResult);
+          expect(jsonResult).toEqual(jsRepresentation);
         });
       });
     });
@@ -229,21 +222,21 @@ describe("When working with PolyPlug,", function() {
       });
 
       it("the oldNode is mutated to the newNode", function() {
-        const expectedJSON = plug.toJSON(newNode);
-        // The JSON serialization for both old and new are different.
-        expect(plug.toJSON(oldNode)).not.toEqual(expectedJSON);
+        const expectedJS = plug.nodeToJS(newNode);
+        // The JS serialization for both old and new are different.
+        expect(plug.nodeToJS(oldNode)).not.toEqual(expectedJS);
         // Mutate.
         const is_changed = plug.mutate(oldNode, newNode);
         // Confirmation the oldNode has changed.
         expect(is_changed).toEqual(true);
         // The JSON serialization for both old and new are now the same.
-        expect(plug.toJSON(oldNode)).toEqual(expectedJSON);
+        expect(plug.nodeToJS(oldNode)).toEqual(expectedJS);
       });
 
       it("the oldNode isn't changed if newNode is the same", function() {
-        const expectedJSON = plug.toJSON(oldNode);
-        const nodeA = plug.toDOM(expectedJSON);
-        const nodeB = plug.toDOM(expectedJSON);
+        const expectedJS = plug.nodeToJS(oldNode);
+        const nodeA = plug.jsToNode(expectedJS);
+        const nodeB = plug.jsToNode(expectedJS);
         // Mutate
         const is_changed = plug.mutate(nodeA, nodeB);
         // No change.
@@ -347,9 +340,8 @@ describe("When working with PolyPlug,", function() {
         plug.receiveMessage(msg);
         // The DOM has been updated as expected.
         const updatedDIV = plug.getElements({id: "testMutate"})[0];
-        const actual = plug.toJSON(updatedDIV);
-        const expected = JSON.stringify(target);
-        expect(actual).toEqual(expected);
+        const actual = plug.nodeToJS(updatedDIV);
+        expect(actual).toEqual(target);
       });
       it("the registerEvent message registers an event", function(done) {
         const msg = JSON.stringify({
