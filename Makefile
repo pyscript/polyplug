@@ -6,8 +6,11 @@ all:
 	@echo "make test - while serving the app, run the test suite in browser."
 	@echo "make minify - minify the project."
 
-test:
+testjs:
 	python -m webbrowser "SpecRunner.html"
+
+testpy:
+	pytest -v --random-order --cov-report term-missing --cov=polyplug tests/
 
 minify:
 	uglifyjs polyplug.js --compress --mangle -o polyplug.min.js

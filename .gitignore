@@ -1,2 +1,4 @@
 *.swp
 *.min.js
+.coverage
+__pycache__

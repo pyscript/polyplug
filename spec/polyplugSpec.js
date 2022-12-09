@@ -301,6 +301,20 @@ describe("When working with PolyPlug,", function() {
         const clickEvent = new Event("click");
         button.dispatchEvent(clickEvent);
         document.removeEventListener("polyplugSend", eventListener);
+        plug.removeEvent({id: "testButton"}, "click", "myTestClicker");
+      });
+    });
+    describe("when removing events from the DOM,", function() {
+      it("removes the expected polyplugSend listener from the correct event", function() {
+        const eventListener = jasmine.createSpy("eventListener");
+        document.addEventListener("polyplugSend", eventListener);
+        plug.registerEvent({id: "testButton"}, "click", "myTestClicker");
+        const button = plug.getElements({id: "testButton"})[0];
+        plug.removeEvent({id: "testButton"}, "click", "myTestClicker");
+        const clickEvent = new Event("click");
+        button.dispatchEvent(clickEvent);
+        document.removeEventListener("polyplugSend", eventListener);
+        expect(eventListener).not.toHaveBeenCalled();
       });
     });
     describe("when handling incoming messages,", function() {

@@ -24,6 +24,13 @@ This is the way:
 This project was created for research purposes as part of the efforts to build
 [PyScript](https://pyscript.net).
 
+There are two sides to PolyPlug:
+
+* The `polyplug.js` code to be run in the main thread of the browser.
+* Code, to be run in the interpreter of the scripting language, to communicate
+  with PolyPlug. Currently only `polyplug.py` exists as a reference
+  implementation.
+
 That is all.
 
 ## Developer setup
@@ -35,7 +42,8 @@ $ make
 There's no default Makefile target right now. Try:
 
 make minify - minify the source.
-make test - run the test suite.
+make testjs - run the JavaScript test suite.
+make testpy - run the Python test suite.
 ```
 
 ## Running the tests
@@ -43,6 +51,9 @@ make test - run the test suite.
 For the sake of simplicity (and familiarity) we use the
 [Jasmine test framework](https://jasmine.github.io/index.html) to exercise the
 JavaScript aspects of our code.
+
+For similar reasons, we use [PyTest](https://pytest.org/) to exercise the
+Pythonic aspects of our code.
 
 ## How it works
 

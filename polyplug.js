@@ -36,6 +36,14 @@ limitations under the License.
 ******************************************************************************/
 
 const polyplug = function() {
+
+    /**************************************************************************
+    Internal state for PolyPlug.
+    **************************************************************************/
+
+    // Tracks event handler functions.
+    const REGISTERED_EVENTS = {};
+
     /**************************************************************************
     Serialization functions for PolyPlug.
     **************************************************************************/
@@ -330,6 +338,14 @@ const polyplug = function() {
     Event handling functions for PolyPlug.
     **************************************************************************/
 
+    function getEventKey(query, eventType, listener) {
+        /*
+        Return a unique key to identify a query/eventType/listener combination.
+        */
+        const sortedQuery = Object.keys(query).sort().reduce((result, key) => (result[key] = query[key], result), {});
+        return JSON.stringify([sortedQuery, eventType, listener]);
+    }
+
     function registerEvent(query, eventType, listener) {
         /*
         Register an event listener, given:
@@ -346,17 +362,39 @@ const polyplug = function() {
         expected function in the most appropriate way.
         */
         const elements = getElements(query);
-        elements.forEach(function(element) {
-            element.addEventListener(eventType, function(e) {
-                const detail = JSON.stringify({
-                    type: e.type,
-                    target: nodeToJS(e.target),
-                    listener: listener
-                });
-                const send = new CustomEvent("polyplugSend", {detail: detail});
-                document.dispatchEvent(send);
+        const eventHandler = function(e) {
+            const detail = JSON.stringify({
+                type: e.type,
+                target: nodeToJS(e.target),
+                listener: listener
             });
+            const send = new CustomEvent("polyplugSend", {detail: detail});
+            document.dispatchEvent(send);
+        }
+        const eventKey = getEventKey(query, eventType, listener);
+        REGISTERED_EVENTS[eventKey] = eventHandler;
+        elements.forEach(function(element) {
+            element.addEventListener(eventType, eventHandler);
         });
+    }
+
+    function removeEvent(query, eventType, listener) {
+        /*
+        Remove an event listener, given:
+
+        * target element[s] via a query object (see getElements),
+        * the event type (e.g. "click"), and,
+        * the name of the listener to call in the remote interpreter.
+        */
+        const elements = getElements(query);
+        const eventKey = getEventKey(query, eventType, listener);
+        const eventHandler = REGISTERED_EVENTS[eventKey];
+        if (eventHandler) {
+            elements.forEach(function(element) {
+                element.removeEventListener(eventType, eventHandler);
+            });
+            delete REGISTERED_EVENTS[eventKey];
+        }
     }
 
     /**************************************************************************
@@ -368,27 +406,34 @@ const polyplug = function() {
         Receive a raw message string (containing JSON). Deserialize it and
         dispatch the message to the appropriate handler function.
         */
-        const message = JSON.parse(raw);
-        switch (message.type) {
-            case "updateDOM":
-                onUpdateDOM(message);
-                break;
-            case "registerEvent":
-                onRegisterEvent(message);
-                break;
-            case "stdout":
-                onStdout(message);
-                break;
-            case "stderr":
-                onStderr(message);
-                break;
-            case "error":
-                onError(message);
-                break;
-            default:
-                console.log("Unknown message type.")
-                console.log(message)
-                break;
+        try {
+            const message = JSON.parse(raw);
+            switch (message.type) {
+                case "updateDOM":
+                    onUpdateDOM(message);
+                    break;
+                case "registerEvent":
+                    onRegisterEvent(message);
+                    break;
+                case "removeEvent":
+                    onRemoveEvent(message);
+                    break
+                case "stdout":
+                    onStdout(message);
+                    break;
+                case "stderr":
+                    onStderr(message);
+                    break;
+                case "error":
+                    onError(message);
+                    break;
+                default:
+                    console.log("Unknown message type.")
+                    console.log(message)
+                    break;
+            }
+        } catch (error) {
+            onError(error);
         }
     }
 
@@ -440,6 +485,24 @@ const polyplug = function() {
         }
         */
         registerEvent(msg.query, msg.eventType, msg.listener);
+    }
+
+    function onRemoveEvent(msg) {
+        /*
+        Handle requests to unbind the referenced event type on the elements
+        matched by the query.
+
+        Sample message:
+
+        msg = {
+            type: "removeEvent",
+            query: {
+                id: "idOfDomElement"
+            },
+            eventType: "click",
+        }
+        */
+        removeEvent(msg.query, msg.eventType);
     }
 
     function onStdout(msg) {
@@ -505,7 +568,7 @@ const polyplug = function() {
         mutate: mutate,
         getElements: getElements,
         registerEvent: registerEvent,
+        removeEvent: removeEvent,
         receiveMessage: receiveMessage
     }
 };
-
