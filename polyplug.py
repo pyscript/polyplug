@@ -368,12 +368,7 @@ class ElementNode(Node):
         """
         result = ""
         for child in self.childNodes:
-            if isinstance(child, ElementNode):
-                result += child.outerHTML
-            elif isinstance(child, TextNode):
-                result += child.nodeValue
-            elif isinstance(child, CommentNode):
-                result += "<!--" + child.nodeValue + "-->"
+            result += child.outerHTML
         return result
 
     @innerHTML.setter
@@ -434,6 +429,13 @@ class TextNode(Node):
         self.nodeValue = kwargs.get("nodeValue")
 
     @property
+    def outerHTML(self):
+        """
+        Get a string representation of the element's outer HTML.
+        """
+        return self.nodeValue
+
+    @property
     def as_dict(self):
         return {
             "nodeType": 3,
@@ -453,6 +455,13 @@ class CommentNode(Node):
         self.nodeValue = kwargs.get("nodeValue")
 
     @property
+    def outerHTML(self):
+        """
+        Get a string representation of the element's outer HTML.
+        """
+        return "<!--" + self.nodeValue + "-->"
+
+    @property
     def as_dict(self):
         return {
             "nodeType": 8,
@@ -469,6 +478,13 @@ class FragmentNode(Node):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    @property
+    def outerHTML(self):
+        """
+        Get a string representation of the element's outer HTML.
+        """
+        return ""
 
     @property
     def as_dict(self):

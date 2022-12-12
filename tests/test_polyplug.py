@@ -378,6 +378,7 @@ def test_text_node():
     )
     assert n.nodeValue == "Test text."
     assert n.parent == "fakeParent"
+    assert n.outerHTML == "Test text."
 
 
 def test_comment_node():
@@ -392,6 +393,7 @@ def test_comment_node():
     )
     assert n.nodeValue == "Test comment."
     assert n.parent == "fakeParent"
+    assert n.outerHTML == "<!--Test comment.-->"
 
 
 def test_fragment_node():
@@ -404,6 +406,7 @@ def test_fragment_node():
         parent="fakeParent",
     )
     assert n.parent == "fakeParent"
+    assert n.outerHTML == ""
 
 
 def test_htmltokenizer_init():
