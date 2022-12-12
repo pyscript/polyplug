@@ -323,6 +323,49 @@ def test_element_node_add_child_as_dict():
     assert new_child.nodeValue == "Hello"
 
 
+def test_element_node_get_outer_html():
+    """
+    Get a string representation of the node's complete structure.
+    """
+    n = polyplug.ElementNode(tagName="div", attributes={"foo": "bar"})
+    n.add_child(polyplug.TextNode(nodeValue="Hello"))
+    assert n.outerHTML == "<div foo=\"bar\">Hello</div>"
+
+
+def test_element_node_get_inner_html_empty():
+    """
+    Get a string representation of the node's inner structure. Empty.
+    """
+    n = polyplug.ElementNode(tagName="div", attributes={"foo": "bar"})
+    assert n.innerHTML == ""
+
+
+def test_element_node_get_set_inner_html_complex():
+    """
+    Get a string representation of the node's inner structure.
+    """
+    n = polyplug.ElementNode(tagName="div", attributes={"foo": "bar"})
+    n.innerHTML = "<!-- comment --><p>Hello</p>"
+    assert n.innerHTML == "<!-- comment --><p>Hello</p>"
+
+def test_element_node_set_inner_html_empty():
+    """
+    Set the innerHTML of the node as empty.
+    """
+    n = polyplug.ElementNode(tagName="div", attributes={"foo": "bar"})
+    n.innerHTML = "<!-- comment --><p>Hello</p>"
+    n.innerHTML = ""
+    assert n.innerHTML == ""
+
+
+def test_element_node_set_inner_html_textarea():
+    """
+    Set the innerHTML of the node as a textarea.
+    """
+    n = polyplug.ElementNode(tagName="div", attributes={"foo": "bar"})
+    n.innerHTML = "<textarea>Test <fake html></textarea>"
+    assert n.innerHTML == "<textarea>Test <fake html></textarea>"
+
 def test_text_node():
     """
     The TextNode instantiates as expected.
@@ -515,10 +558,32 @@ def test_htmltokenizer_get_text():
     Get the textual content of a TextNode (i.e. everything until encountering
     "<").
     """
+    raw = "Hello, world!<div>"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.get_text() == "Hello, world!"
+    assert tok.char == "<"
+
+
+def test_htmltokenizer_get_text_bound_check():
+    """
+    Get the textual content of a TextNode (i.e. everything until encountering
+    "<").
+    """
     raw = "Hello, world!<"
     tok = polyplug.HTMLTokenizer(raw)
     assert tok.get_text() == "Hello, world!"
     assert tok.char == "<"
+
+
+def test_htmltokenizer_get_text_eof():
+    """
+    Get the textual content of a TextNode (i.e. everything until encountering
+    "<").
+    """
+    raw = "Hello, world!"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.get_text() == "Hello, world!"
+    assert tok.char == ""
 
 
 def test_htmltokenizer_get_text_until():
@@ -571,3 +636,126 @@ def test_htmltokenizer_tokenize_comment():
     tok = polyplug.HTMLTokenizer(raw)
     tok.tokenize(parent)
     assert len(parent.childNodes) == 1
+    assert isinstance(parent.childNodes[0], polyplug.CommentNode)
+    assert parent.childNodes[0].nodeValue == " Test comment. "
+
+
+def test_htmltokenizer_tokenize_prolog():
+    """
+    Given a valid parent, an XML prolog node is ignored. <? foo ?>
+    """
+    parent = polyplug.ElementNode(tagName="div")
+    raw = "<? xml ?>"
+    tok = polyplug.HTMLTokenizer(raw)
+    tok.tokenize(parent)
+    assert len(parent.childNodes) == 0
+
+
+def test_htmltokenizer_tokenize_text():
+    """
+    Textual content becomes a child TextNode.
+    """
+    parent = polyplug.ElementNode(tagName="div")
+    raw = "Test text."
+    tok = polyplug.HTMLTokenizer(raw)
+    tok.tokenize(parent)
+    assert len(parent.childNodes) == 1
+    assert isinstance(parent.childNodes[0], polyplug.TextNode)
+    assert parent.childNodes[0].nodeValue == "Test text."
+
+
+def test_htmltokenizer_tokenize_element():
+    """
+    An HTML element becomes a child ElementNode.
+    """
+    parent = polyplug.ElementNode(tagName="div")
+    raw = "<p>Hello</p>"
+    tok = polyplug.HTMLTokenizer(raw)
+    tok.tokenize(parent)
+    assert len(parent.childNodes) == 1
+    p_node = parent.childNodes[0]
+    assert isinstance(p_node, polyplug.ElementNode)
+    assert len(p_node.childNodes) == 1
+    assert isinstance(p_node.childNodes[0], polyplug.TextNode)
+    assert p_node.childNodes[0].nodeValue == "Hello"
+
+
+def test_htmltokenizer_tokenize_element_textarea():
+    """
+    An HTML element becomes a child ElementNode. But textarea nodes will only
+    have a value (no children) containing the text within the tags.
+    """
+    parent = polyplug.ElementNode(tagName="div")
+    raw = "<textarea>Hello <fake-html></textarea>"
+    tok = polyplug.HTMLTokenizer(raw)
+    tok.tokenize(parent)
+    assert len(parent.childNodes) == 1
+    textarea = parent.childNodes[0]
+    assert isinstance(textarea, polyplug.ElementNode)
+    assert len(textarea.childNodes) == 0
+    assert textarea.value == "Hello <fake-html>"
+
+
+def test_htmltokenizer_tokenize_element_unexpected():
+    """
+    An unexpected close tag results in a ValueError.
+    """
+    parent = polyplug.ElementNode(tagName="div")
+    raw = "</textarea>"
+    tok = polyplug.HTMLTokenizer(raw)
+    with pytest.raises(ValueError):
+        tok.tokenize(parent)
+
+
+def test_htmltokenizer_tokenize_complex_tree():
+    """
+    A more complex tree with several branches and node types.
+    """
+    parent = polyplug.ElementNode(tagName="div")
+    raw = "<!-- comment --><div id='myId'><p>Hello</p><p>world</p></div>"
+    expected = {
+        "childNodes": [
+            {
+                "childNodes": [],
+                "nodeName": "#comment",
+                "nodeType": 8,
+                "nodeValue": " comment ",
+            },
+            {
+                "attributes": {"id": "myId"},
+                "childNodes": [
+                    {
+                        "childNodes": [
+                            {
+                                "childNodes": [],
+                                "nodeName": "#text",
+                                "nodeType": 3,
+                                "nodeValue": "Hello",
+                            }
+                        ],
+                        "nodeType": 1,
+                        "tagName": "p",
+                    },
+                    {
+                        "childNodes": [
+                            {
+                                "childNodes": [],
+                                "nodeName": "#text",
+                                "nodeType": 3,
+                                "nodeValue": "world",
+                            }
+                        ],
+                        "nodeType": 1,
+                        "tagName": "p",
+                    },
+                ],
+                "nodeType": 1,
+                "tagName": "div",
+            },
+        ],
+        "nodeType": 1,
+        "tagName": "div",
+    }
+    tok = polyplug.HTMLTokenizer(raw)
+    tok.tokenize(parent)
+    assert parent.as_dict == expected

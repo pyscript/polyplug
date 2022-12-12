@@ -184,16 +184,22 @@ class HTMLTokenizer:
 
     def get_text(self, until="<"):
         """
-        Return textual content until the start of a new Node ("<") or
-        until matches.
+        Return textual content until the start of a new Node ("<") or until
+        "until" matches.
         """
         result = ""
         until_len = len(until)
         while result[-until_len:] != until and self.char:
             result += self.get_char()
-        self.pos = self.pos - until_len
-        self.next_char()
-        return result[:-until_len]
+        if result[-until_len:] == until:
+            self.pos = self.pos - until_len
+            if self.char:
+                self.pos = self.pos - 1
+            self.next_char()
+            return result[:-until_len]
+        else:
+            # EOF
+            return result
 
     def tokenize(self, parent=None):
         """
@@ -205,7 +211,6 @@ class HTMLTokenizer:
         """
         if not isinstance(parent, ElementNode):
             raise ValueError("Parent must be an ElementNode")
-        current_children = []
         current_node = None
         current_parent = parent
         while self.char:
@@ -213,21 +218,18 @@ class HTMLTokenizer:
                 # Tag opens.
                 if self.match("/"):
                     # End tag. Close and check depth of tree.
-                    if not current_node:
-                        # Can't close an un-opened current node.
-                        raise ValueError("Missing opening tag.")
                     # Get the name of the closing tag.
                     name = self.get_name()
-                    if name == current_node.tagName:
+                    if current_node and name == current_node.tagName:
                         # Close current node and continue at current depth.
-                        current_children.append(current_node)
+                        current_parent.add_child(current_node)
                         current_node = None
                     elif name == current_parent.tagName:
                         # Step back up the tree to the parent context.
-                        for child in current_children:
-                            current_parent.add_child(child)
                         current_node = current_parent
                         current_parent = current_node.parent
+                        current_parent.add_child(current_node)
+                        current_node = None
                     else:
                         # Unexpected close tag.
                         raise ValueError("Unexpected close tag.", name)
@@ -246,31 +248,41 @@ class HTMLTokenizer:
                         value += self.get_char()
                         if value[-3:] == "-->":
                             break
-                    comment = CommentNode(nodeValue=value)
-                    current_children.append(comment)
+                    comment = CommentNode(nodeValue=value[:-3])
+                    current_parent.add_child(comment)
                 else:
                     # ElementNode
                     tagName = self.get_name()
                     attrs = self.get_attrs()
+                    if current_node:
+                        current_parent = current_node
                     if tagName == "textarea":
+                        self.expect(">")
                         value = self.get_text(until="</textarea>")
-                        current_node = ElementNode(
-                            tagName=tagName, attributes=attrs, value=value
+                        textarea_node = ElementNode(
+                            tagName=tagName,
+                            attributes=attrs,
+                            value=value,
+                            parent=current_parent,
                         )
-                        expect("</textarea>")
+                        for c in "</textarea>":
+                            self.expect(c)
+                        current_parent.add_child(textarea_node)
                     else:
                         current_node = ElementNode(
-                            tagName=tagName, attributes=attrs
+                            tagName=tagName,
+                            attributes=attrs,
+                            parent=current_parent,
                         )
-                    current_children = []
+                        self.expect(">")
             else:
                 # TextNode
                 value = self.get_text()
                 text = TextNode(nodeValue=value)
-                current_children.append(text)
-        # Append "root" children to the parent node.
-        for child in current_children:
-            parent.add_child(child)
+                if current_node:
+                    current_node.add_child(text)
+                else:
+                    current_parent.add_child(text)
 
 
 class Node:
@@ -332,6 +344,46 @@ class ElementNode(Node):
         node_dict["parent"] = self
         children.append(node_dict)
         self._node["childNodes"] = children
+
+    @property
+    def outerHTML(self):
+        """
+        Get a string representation of the element's outer HTML.
+        """
+        result = "<" + self.tagName
+        for attr, val in self.attributes.items():
+            result += " " + attr + "=\"" + val + "\""
+        result += ">"
+        if self.tagName == "textarea":
+            result += self.value
+        else:
+            result += self.innerHTML
+        result += "</" + self.tagName + ">"
+        return result
+
+    @property
+    def innerHTML(self):
+        """
+        Get a string representation of the element's inner HTML.
+        """
+        result = ""
+        for child in self.childNodes:
+            if isinstance(child, ElementNode):
+                result += child.outerHTML
+            elif isinstance(child, TextNode):
+                result += child.nodeValue
+            elif isinstance(child, CommentNode):
+                result += "<!--" + child.nodeValue + "-->"
+        return result
+
+    @innerHTML.setter
+    def innerHTML(self, raw):
+        """
+        Use the raw innerHTML to create children.
+        """
+        self._node["childNodes"] = []
+        tok = HTMLTokenizer(raw)
+        tok.tokenize(self)
 
     @property
     def childNodes(self):
