@@ -202,6 +202,7 @@ def test_node():
     assert n._node["a"] == 1
     assert n._node["b"] == 2
     assert n.parent is None
+    assert n.outerHTML is NotImplemented
     assert n.as_dict is NotImplemented
 
 

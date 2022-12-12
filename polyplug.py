@@ -295,6 +295,10 @@ class Node:
         self.parent = kwargs.get("parent")
 
     @property
+    def outerHTML(self):
+        return NotImplemented
+
+    @property
     def as_dict(self):
         return NotImplemented
 
