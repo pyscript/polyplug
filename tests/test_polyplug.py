@@ -80,10 +80,7 @@ DOM_FROM_JSON = {
             "tagName": "ul",
             "attributes": {"id": "list"},
             "childNodes": [
-                {
-                    "nodeType": 11,
-                    "childNodes": []
-                },
+                {"nodeType": 11, "childNodes": []},
                 {
                     "nodeType": 1,
                     "tagName": "li",
@@ -298,6 +295,34 @@ def test_element_node_init_complex_children():
     assert json.dumps(to_jsonify)
 
 
+def test_element_node_add_child_as_node():
+    """
+    It's possible to add a child node that is a Node type.
+    """
+    n = polyplug.ElementNode(tagName="div", attributes={"foo": "bar"})
+    assert n.childNodes == []
+    child = polyplug.TextNode(nodeValue="Hello")
+    n.add_child(child)
+    assert len(n.childNodes) == 1
+    new_child = n.childNodes[0]
+    assert isinstance(new_child, polyplug.TextNode) is True
+    assert new_child.nodeValue == "Hello"
+
+
+def test_element_node_add_child_as_dict():
+    """
+    It's possible to add a child node that is represented as a dict.
+    """
+    n = polyplug.ElementNode(tagName="div", attributes={"foo": "bar"})
+    assert n.childNodes == []
+    child = polyplug.TextNode(nodeValue="Hello").as_dict
+    n.add_child(child)
+    assert len(n.childNodes) == 1
+    new_child = n.childNodes[0]
+    assert isinstance(new_child, polyplug.TextNode) is True
+    assert new_child.nodeValue == "Hello"
+
+
 def test_text_node():
     """
     The TextNode instantiates as expected.
@@ -336,3 +361,213 @@ def test_fragment_node():
         parent="fakeParent",
     )
     assert n.parent == "fakeParent"
+
+
+def test_htmltokenizer_init():
+    """
+    The HTMLTokenizer class instantiates to the expected state.
+    """
+    tok = polyplug.HTMLTokenizer("<p>Hello</p>")
+    assert tok.raw == "<p>Hello</p>"
+    assert tok.len == len(tok.raw)
+    assert tok.char == "<"
+    assert tok.pos == 1
+    tok = polyplug.HTMLTokenizer("")
+    assert tok.raw == ""
+    assert tok.len == 0
+    assert tok.pos == 0
+    assert tok.char == ""
+
+
+def test_htmltokenizer_next_char():
+    """
+    The next_char method keeds setting and returning the next character in the
+    HTML string, until it reaches the end, then just returns empty string.
+    """
+    raw = "<p>Hello</p>"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.char == "<"
+    for i, character in enumerate(raw[1:], start=1):
+        assert i == tok.pos
+        result = tok.next_char()
+        assert result == character
+    assert tok.next_char() == ""
+
+
+def test_htmltokenizer_get_char():
+    """
+    Ensure get_char gets the current character and moves the position forward
+    by one step.
+    """
+    raw = "<p>Hello</p>"
+    tok = polyplug.HTMLTokenizer(raw)
+    for i, character in enumerate(raw, start=1):
+        assert i == tok.pos
+        result = tok.get_char()
+        assert result == character
+    assert tok.next_char() == ""
+
+
+def test_htmltokenizer_skip_ws():
+    """
+    Ensure whitespace skipping works as expected. Just ignore the whitespace
+    until the next non-space character if encountered.
+    """
+    # Content with whitespace.
+    raw = "\n\t     <p>Hello</p>"
+    tok = polyplug.HTMLTokenizer(raw)
+    tok.skip_ws()
+    assert tok.char == "<"
+    assert tok.pos == 8
+    # No content.
+    tok = polyplug.HTMLTokenizer("")
+    tok.skip_ws()
+    assert tok.char == ""
+    assert tok.pos == 0
+
+
+def test_htmltokenizer_match():
+    """
+    Ensure the next non-whitespace character matches the expected outcome.
+    """
+    raw = "\n\t     <p>Hello</p>"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.match("<") is True
+    assert tok.match("!") is False
+
+
+def test_htmltokenizer_match_multiple_expected():
+    """
+    Ensure the next non-whitespace character matches one of the several
+    expected outcomes.
+    """
+    raw = "\n\t     <p>Hello</p>"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.match("><") is True
+    assert tok.match("!") is False
+
+
+def test_htmltokenizer_expect():
+    """
+    Do nothing if the next non-whitespace character is the expected outcome,
+    otherwise raise a ValueError exception.
+    """
+    raw = "\n\t     <p>Hello</p>"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.expect("<") is None
+    with pytest.raises(ValueError):
+        tok.expect("!")
+
+
+def test_htmltokenizer_get_name():
+    """
+    Given a potential tagName or attribute name, grab and return it.
+    """
+    # tagName (assume a "<" character was followed by the raw string)
+    raw = "\n\t  div id='foo'"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.get_name() == "div"
+    assert tok.char == " "
+    # attribute name (assume a "<div" was followed by the raw string)
+    raw = "\n\t  id='foo'"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.get_name() == "id"
+    assert tok.expect("=") is None
+
+
+def test_htmltokenizer_get_value():
+    """
+    Given a potential value for an attribute, grab and return it.
+    """
+    raw = "='foo'>"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.get_value() == "foo"
+    assert tok.expect(">") is None
+
+
+def test_htmltokenizer_get_attrs_has_attrs():
+    """
+    If the next part of the string represents valid attributes, ensure the
+    expected Attributes instance is returned.
+    """
+    raw = " id='foo' no_value class=\"myCssClass\">"
+    tok = polyplug.HTMLTokenizer(raw)
+    attrs = tok.get_attrs()
+    assert attrs.id == "foo"
+    assert attrs.no_value == ""
+    assert attrs["class"] == "myCssClass"
+    assert len(attrs) == 3
+
+
+def test_htmltokenizer_get_attrs_no_attributes():
+    """
+    If there are no attributes to parse, just return an empty Attributes
+    object.
+    """
+    raw = ">"
+    tok = polyplug.HTMLTokenizer(raw)
+    attrs = tok.get_attrs()
+    assert len(attrs) == 0
+
+
+def test_htmltokenizer_get_text():
+    """
+    Get the textual content of a TextNode (i.e. everything until encountering
+    "<").
+    """
+    raw = "Hello, world!<"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.get_text() == "Hello, world!"
+    assert tok.char == "<"
+
+
+def test_htmltokenizer_get_text_until():
+    """
+    Get the textual content of a TextNode (i.e. everything until encountering
+    the passed in "until" fragment).
+    """
+    raw = "Hello, world!</textarea>"
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.get_text(until="</textarea>") == "Hello, world!"
+    assert tok.char == "<"
+
+
+def test_htmltokenizer_get_text_empty_with_until():
+    """
+    No more text = empty string.
+    """
+    raw = ""
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.get_text(until="</textarea>") == ""
+    assert tok.char == ""
+
+
+def test_htmltokenizer_get_text_empty():
+    """
+    No more text = empty string.
+    """
+    raw = ""
+    tok = polyplug.HTMLTokenizer(raw)
+    assert tok.get_text() == ""
+    assert tok.char == ""
+
+
+def test_htmltokenizer_tokenize():
+    """
+    Must have a valid parent.
+    """
+    raw = ""
+    tok = polyplug.HTMLTokenizer(raw)
+    with pytest.raises(ValueError):
+        tok.tokenize(parent="foo")
+
+
+def test_htmltokenizer_tokenize_comment():
+    """
+    Given a valid parent, a comment is added as a child from the raw input.
+    """
+    parent = polyplug.ElementNode(tagName="div")
+    raw = "<!-- Test comment. -->"
+    tok = polyplug.HTMLTokenizer(raw)
+    tok.tokenize(parent)
+    assert len(parent.childNodes) == 1
