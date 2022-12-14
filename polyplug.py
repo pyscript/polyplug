@@ -161,7 +161,7 @@ class HTMLTokenizer:
             self.expect(self.QUOTES)
             while True:
                 c = self.char
-                if not (c.isalpha() or c.isdigit() or c in "_-."):
+                if not (c.isalpha() or c.isdigit() or c in "_-. ;:!"):
                     break
                 result += self.get_char()
             self.expect(self.QUOTES)
@@ -296,10 +296,16 @@ class Node:
 
     @property
     def outerHTML(self):
+        """
+        Get a string representation of the element's outer HTML.
+        """
         return NotImplemented
 
     @property
     def as_dict(self):
+        """
+        JSON serializable.
+        """
         return NotImplemented
 
 
@@ -356,7 +362,7 @@ class ElementNode(Node):
         """
         result = "<" + self.tagName
         for attr, val in self.attributes.items():
-            result += " " + attr + "=\"" + val + "\""
+            result += " " + attr + '="' + val + '"'
         result += ">"
         if self.tagName == "textarea":
             result += self.value
@@ -386,6 +392,9 @@ class ElementNode(Node):
 
     @property
     def childNodes(self):
+        """
+        A data structure representing the tree of child nodes.
+        """
         if self.tagName == "textarea":
             # The textarea doesn't have children. Only a text value.
             return []
@@ -411,6 +420,9 @@ class ElementNode(Node):
 
     @property
     def as_dict(self):
+        """
+        JSON serializable.
+        """
         result = {
             "nodeType": 1,
             "tagName": self.tagName,
@@ -422,6 +434,98 @@ class ElementNode(Node):
             result["value"] = self.value
         return result
 
+    def find(self, selector):
+        """
+        Recursively check this node, and its children, and return a result
+        representing nodes that match "selector" string. The selector
+        string understands:
+
+        * .my-id - returns the first ElementNode with the id "my-id". Returns
+          None if no match is found.
+        * #my-class - returns a list containing elements with the class
+          "my-class". Returns an empty list if no match is found.
+        * li - returns a list containing elements with the tagName "li".
+          Returns an empty list if no match is found.
+        """
+        # Validate selector.
+        if not selector:
+            raise ValueError("Missing selector.")
+        result = None
+        if selector[0] == ".":
+            # Select by unique id.
+            target_id = selector[1:]
+            if target_id:
+                return self._find_by_id(target_id)
+            else:
+                raise ValueError("Invalid id.")
+        elif selector[0] == "#":
+            # Select by css class.
+            target_class = selector[1:]
+            if target_class:
+                return self._find_by_class(target_class)
+            else:
+                raise ValueError("Invalid class.")
+        else:
+            # select by tagName.
+            if selector.isalpha():
+                return self._find_by_tagName(selector.lower())
+            else:
+                raise ValueError("Invalid tag name.")
+
+    def _find_by_id(self, target):
+        """
+        Return this node, or the first of its children, if it has the id
+        attribute of target. Returns None if no match is found.
+        """
+        my_id = self.attributes.get("id")
+        if my_id and my_id == target:
+            return self
+        else:
+            for child in (
+                node
+                for node in self.childNodes
+                if isinstance(node, ElementNode)
+            ):
+                result = child._find_by_id(target)
+                if result:
+                    return result
+        return None
+
+    def _find_by_class(self, target):
+        """
+        Return a list containing this node, or any of its children, if the
+        node has the associated target class.
+        """
+        result = []
+        class_attr = self.attributes.get("class", "")
+        if class_attr:
+            classes = [
+                class_name
+                for class_name in class_attr.split(" ")
+                if class_name
+            ]
+            if target in classes:
+                result.append(self)
+        for child in (
+            node for node in self.childNodes if isinstance(node, ElementNode)
+        ):
+            result.extend(child._find_by_class(target))
+        return result
+
+    def _find_by_tagName(self, target):
+        """
+        Return a list containing this node, or any of its children, if the
+        node has the associated target as its tagName (e.g. "div" or "p").
+        """
+        result = []
+        if self.tagName == target:
+            result.append(self)
+        for child in (
+            node for node in self.childNodes if isinstance(node, ElementNode)
+        ):
+            result.extend(child._find_by_tagName(target))
+        return result
+        
 
 class TextNode(Node):
     """
@@ -441,6 +545,9 @@ class TextNode(Node):
 
     @property
     def as_dict(self):
+        """
+        JSON serializable.
+        """
         return {
             "nodeType": 3,
             "nodeName": "#text",
@@ -467,6 +574,9 @@ class CommentNode(Node):
 
     @property
     def as_dict(self):
+        """
+        JSON serializable.
+        """
         return {
             "nodeType": 8,
             "nodeName": "#comment",
@@ -492,14 +602,30 @@ class FragmentNode(Node):
 
     @property
     def as_dict(self):
+        """
+        JSON serializable.
+        """
         return {"nodeType": 11, "childNodes": []}
 
 
 def plug(query, event_type):
     """
-    A decorator to plug a Python function into a DOM event specified by a
-    query to match elements in the DOM tree, and an event_type (e.g. "click").
+    A decorator wrapper to plug a Python function into a DOM event specified
+    by a query to match elements in the DOM tree, and an event_type (e.g.
+    "click").
 
-    The decorator must ... TODO: FINISH THIS
+    Returns a decorator function that wraps the user's own function that is
+    to be registered.
+
+    This decorator wrapper function creates a closure in which various
+    contextual aspects are contained.
     """
-    pass
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            fn(*args, **kwargs)
+
+        return wrapper
+
+    return decorator

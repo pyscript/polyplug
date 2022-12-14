@@ -5,6 +5,7 @@ import copy
 import json
 import pytest
 import polyplug
+from unittest import mock
 
 
 DOM_FROM_JSON = {
@@ -330,7 +331,7 @@ def test_element_node_get_outer_html():
     """
     n = polyplug.ElementNode(tagName="div", attributes={"foo": "bar"})
     n.add_child(polyplug.TextNode(nodeValue="Hello"))
-    assert n.outerHTML == "<div foo=\"bar\">Hello</div>"
+    assert n.outerHTML == '<div foo="bar">Hello</div>'
 
 
 def test_element_node_get_inner_html_empty():
@@ -349,6 +350,7 @@ def test_element_node_get_set_inner_html_complex():
     n.innerHTML = "<!-- comment --><p>Hello</p>"
     assert n.innerHTML == "<!-- comment --><p>Hello</p>"
 
+
 def test_element_node_set_inner_html_empty():
     """
     Set the innerHTML of the node as empty.
@@ -366,6 +368,133 @@ def test_element_node_set_inner_html_textarea():
     n = polyplug.ElementNode(tagName="div", attributes={"foo": "bar"})
     n.innerHTML = "<textarea>Test <fake html></textarea>"
     assert n.innerHTML == "<textarea>Test <fake html></textarea>"
+
+
+def test_element_node_find():
+    """
+    The find method validates the selector.
+    """
+    # Can't be empty.
+    selector = ""
+    n = polyplug.ElementNode(tagName="div")
+    with pytest.raises(ValueError):
+        n.find(selector)
+    # Must be a valid id.
+    selector = ".my-id"  # valid
+    n._find_by_id = mock.MagicMock()
+    n.find(selector)
+    n._find_by_id.assert_called_once_with("my-id")
+    selector = "."  # in-valid
+    with pytest.raises(ValueError):
+        n.find(selector)
+    # Must be a valid class.
+    selector = "#my-class"  # valid
+    n._find_by_class = mock.MagicMock()
+    n.find(selector)
+    n._find_by_class.assert_called_once_with("my-class")
+    selector = "#"  # in-valid
+    with pytest.raises(ValueError):
+        n.find(selector)
+    # Must be a valid tagName.
+    selector = "tagName"  # valid
+    n._find_by_tagName = mock.MagicMock()
+    n.find(selector)
+    n._find_by_tagName.assert_called_once_with("tagname")  # lowercase!
+    selector = "not a tag name because spaces etc"  # in-valid
+    with pytest.raises(ValueError):
+        n.find(selector)
+
+
+def test_element_node_find_by_id():
+    """
+    The expected individual nodes are returned for various combinations of
+    searching the tree by unique id.
+    """
+    # Will return itself as the first match.
+    n = polyplug.ElementNode(tagName="div", attributes={"id": "foo"})
+    assert n == n.find(".foo")
+    # Will return the expected child.
+    n = polyplug.ElementNode(tagName="div")
+    n.innerHTML = "<ul><li>Nope</li><li id='foo'>Yup</li></ul>"
+    result = n.find(".foo")
+    assert isinstance(result, polyplug.ElementNode)
+    assert result.innerHTML == "Yup"
+    # Returns None if no match.
+    assert n.find(".bar") is None
+
+
+def test_element_node_find_by_class():
+    """
+    The expected collection of matching nodes are returned for various
+    combinations of searching the tree by CSS class.
+    """
+    # Returns itself if matched.
+    n = polyplug.ElementNode(tagName="div", attributes={"class": "foo"})
+    assert [
+        n,
+    ] == n.find("#foo")
+    # Returns expected children (along with itself).
+    n = polyplug.ElementNode(tagName="div", attributes={"class": "foo"})
+    n.innerHTML = "<ul><li class='foo'>Yup</li><li class='foo'>Yup</li></ul>"
+    result = n.find("#foo")
+    assert len(result) == 3
+    assert result[0] == n
+    assert result[1].tagName == "li"
+    assert result[2].tagName == "li"
+    # Returns just expected children (not itself).
+    n = polyplug.ElementNode(tagName="div", attributes={"class": "bar"})
+    n.innerHTML = "<ul><li class='foo'>Yup</li><li class='foo'>Yup</li></ul>"
+    result = n.find("#foo")
+    assert len(result) == 2
+    assert result[0].tagName == "li"
+    assert result[1].tagName == "li"
+    # Returns just expected children with multiple classes.
+    n = polyplug.ElementNode(tagName="div", attributes={"class": "bar foo"})
+    n.innerHTML = (
+        "<ul><li class='foo bar'>Yup</li><li class='foobar'>Nope</li></ul>"
+    )
+    result = n.find("#foo")
+    assert len(result) == 2
+    assert result[0] == n
+    assert result[1].tagName == "li"
+    # No match returns an empty list.
+    n = polyplug.ElementNode(tagName="div", attributes={"class": "bar"})
+    n.innerHTML = "<ul><li class='foo'>Nope</li><li class='foo'>Nope</li></ul>"
+    result = n.find("#baz")
+    assert result == []
+
+
+def test_element_node_find_by_tagName():
+    """
+    The expected collection of matching nodes are returned for various
+    combinations of searching the tree by tagName.
+    """
+    # Returns itself if matched.
+    n = polyplug.ElementNode(tagName="div")
+    assert [
+        n,
+    ] == n.find("div")
+    # Returns expected children (along with itself).
+    n = polyplug.ElementNode(tagName="li")
+    n.innerHTML = "<ul><li>Yup</li><li>Yup</li></ul>"
+    result = n.find("li")
+    assert len(result) == 3
+    assert result[0] == n
+    assert result[1].innerHTML == "Yup"
+    assert result[2].innerHTML == "Yup"
+    # Returns just expected children (not itself).
+    n = polyplug.ElementNode(tagName="div")
+    n.innerHTML = "<ul><li>Yup</li><li>Yup</li></ul>"
+    result = n.find("li")
+    assert len(result) == 2
+    assert result[0].innerHTML == "Yup"
+    assert result[1].innerHTML == "Yup"
+    # No match returns an empty list.
+    n = polyplug.ElementNode(tagName="div")
+    n.innerHTML = "<ul><li>Nope</li><li>Nope</li></ul>"
+    result = n.find("p")
+    assert result == []
+
 
 def test_text_node():
     """
@@ -526,9 +655,9 @@ def test_htmltokenizer_get_value():
     """
     Given a potential value for an attribute, grab and return it.
     """
-    raw = "='foo'>"
+    raw = "='font: arial; font-weight: bold!important;'>"
     tok = polyplug.HTMLTokenizer(raw)
-    assert tok.get_value() == "foo"
+    assert tok.get_value() == "font: arial; font-weight: bold!important;"
     assert tok.expect(">") is None
 
 
