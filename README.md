@@ -42,6 +42,9 @@ required packages:
 $ pip install -r requirements.txt
 ```
 
+For JavaScript development, just edit the file and run the tests. _There are
+deliberately no dependencies or complex tooling to ensure simplicity_.
+
 Common tasks are scripted by a Makefile (tested on Linux):
 
 ```
