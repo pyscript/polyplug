@@ -35,6 +35,13 @@ That is all.
 
 ## Developer setup
 
+For Python development, create a new virtual environment and install the
+required packages:
+
+```
+$ pip install -r requirements.txt
+```
+
 Common tasks are scripted by a Makefile (tested on Linux):
 
 ```
