@@ -1,8 +1,11 @@
+import binascii
+import builtins
+import hashlib
 import json
 
 
-def output(content):
-    print(json.dumps({"type": "stdout", "content": content}))
+# Registered event listeners.
+LISTENERS = {}
 
 
 class Query:
@@ -525,7 +528,7 @@ class ElementNode(Node):
         ):
             result.extend(child._find_by_tagName(target))
         return result
-        
+
 
 class TextNode(Node):
     """
@@ -608,6 +611,62 @@ class FragmentNode(Node):
         return {"nodeType": 11, "childNodes": []}
 
 
+def get_listener_id(query, event_type, listener):
+    """
+    Given a query, event type and listener function, generate a unique id from
+    this combination.
+    """
+    raw = str(query.as_dict) + event_type + listener.__name__
+    return binascii.hexlify(
+        hashlib.sha256(raw.encode("utf-8")).digest()
+    ).decode("ascii")
+
+
+def print(*args, **kwargs):
+    """
+    Overridden print so output is handled correctly via JSON message passing
+    instead of just raw text.
+    """
+    sep = kwargs.get("sep", " ")
+    end = kwargs.get("end", "\n")
+    content = sep.join(args) + end
+    builtins.print(json.dumps({"type": "stdout", "content": content}))
+
+
+def update(query, target):
+    """
+    Update the DOM so the node[s] matching the query are mutated to the state
+    defined by the target node.
+    """
+    builtins.print(
+        json.dumps(
+            {
+                "type": "updateDOM",
+                "query": query.as_dict,
+                "target": target.as_dict,
+            }
+        )
+    )
+
+
+def remove(query, event_type, listener):
+    """
+    Remove the referenced listener from handling the event_type from the
+    node[s] matching the query.
+    """
+    listener_id = get_listener_id(query, event_type, listener)
+    del LISTENERS[listener_id]
+    builtins.print(
+        json.dumps(
+            {
+                "type": "removeEvent",
+                "query": query.as_dict,
+                "eventType": event_type,
+            }
+        )
+    )
+
+
 def plug(query, event_type):
     """
     A decorator wrapper to plug a Python function into a DOM event specified
@@ -622,10 +681,56 @@ def plug(query, event_type):
     """
 
     def decorator(fn):
-        @wraps(fn)
-        def wrapper(*args, **kwargs):
-            fn(*args, **kwargs)
+        """
+        Register the function via the query and event_type.
+        """
 
+        def wrapper(event):
+            return fn(event)
+
+        listener_id = get_listener_id(query, event_type, wrapper)
+        builtins.print(
+            json.dumps(
+                {
+                    "type": "registerEvent",
+                    "query": query.as_dict,
+                    "eventType": event_type,
+                    "listener": listener_id,
+                }
+            )
+        )
+
+        LISTENERS[listener_id] = wrapper
         return wrapper
 
     return decorator
+
+
+def receive(raw):
+    """
+    Given a raw JSON message, decode it, find the expected handler function,
+    re-constitute the DOM, and call the handler with the appropriate context.
+    """
+    try:
+        msg = json.loads(raw)
+        event_type = msg.get("type")
+        target = msg.get("target")
+        listener = msg.get("listener")
+        if event_type and target and listener:
+            if listener in LISTENERS:
+                event = DomEvent(event_type, ElementNode(**target))
+                LISTENERS[listener](event)
+            else:
+                raise RuntimeError("No such listener: " + listener)
+        else:
+            raise ValueError("Incomplete message received: " + raw)
+    except Exception as ex:
+        context = {"type": type(ex).__name__, "msg": str(ex)}
+        builtins.print(
+            json.dumps(
+                {
+                    "type": "error",
+                    "context": context,
+                }
+            )
+        )

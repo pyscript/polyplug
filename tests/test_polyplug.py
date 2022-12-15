@@ -1,11 +1,25 @@
 """
 Exercise PolyPlug.
 """
+import builtins
 import copy
 import json
 import pytest
 import polyplug
 from unittest import mock
+
+
+@pytest.fixture(autouse=True)
+def test_wrapper():
+    """
+    Ensures clean state.
+    """
+    # Clear the listeners.
+    polyplug.LISTENERS = {}
+    # Run the test.
+    yield
+    # ???
+    # Profit!
 
 
 DOM_FROM_JSON = {
@@ -892,3 +906,203 @@ def test_htmltokenizer_tokenize_complex_tree():
     tok = polyplug.HTMLTokenizer(raw)
     tok.tokenize(parent)
     assert parent.as_dict == expected
+
+
+def test_get_listener_id():
+    """
+    Return a string containing a hex representation of a sha256 hash of the
+    passed in Query, event type and listener function.
+    """
+    q = polyplug.Query(id="foo")
+    event_type = "click"
+
+    def test_fn():
+        pass
+
+    id_1 = polyplug.get_listener_id(q, event_type, test_fn)
+    id_2 = polyplug.get_listener_id(q, event_type, test_fn)
+    assert id_1 == id_2  # These should be the same..!
+
+
+def test_print():
+    """
+    The polyplug print function emits the expected JSON message.
+    """
+    with mock.patch("builtins.print") as mock_print:
+        # Simple case with defaults.
+        polyplug.print("Hello", "world")
+        mock_print.assert_called_once_with(
+            '{"type": "stdout", "content": "Hello world\\n"}'
+        )
+        mock_print.reset_mock()
+        # More complex with sep and end
+        polyplug.print("Hello", "world", sep="-", end="")
+        mock_print.assert_called_once_with(
+            '{"type": "stdout", "content": "Hello-world"}'
+        )
+
+
+def test_update():
+    """
+    Given a query object and a representation of a target node, the expected
+    updateDOM message is emitted, with the correct payload.
+    """
+    query = polyplug.Query(id="foo")
+    raw_dom = copy.deepcopy(DOM_FROM_JSON)
+    target = polyplug.ElementNode(**raw_dom)
+    with mock.patch("builtins.print") as mock_print:
+        polyplug.update(query, target)
+        assert mock_print.call_count == 1
+        msg = json.loads(mock_print.call_args.args[0])
+        assert msg["type"] == "updateDOM"
+        assert msg["query"]["id"] == "foo"
+        assert msg["target"] == DOM_FROM_JSON
+
+
+def test_remove():
+    """ """
+    with mock.patch("builtins.print") as mock_print:
+
+        @polyplug.plug(polyplug.Query(id="foo"), "some-event")
+        def test_fn(event):
+            return "It works!"
+
+        assert mock_print.call_count == 1
+        listener_id = polyplug.get_listener_id(
+            polyplug.Query(id="foo"), "some-event", test_fn
+        )
+        assert listener_id in polyplug.LISTENERS
+        mock_print.reset_mock()
+        polyplug.remove(polyplug.Query(id="foo"), "some-event", test_fn)
+        assert mock_print.call_count == 1
+        msg = json.loads(mock_print.call_args.args[0])
+        assert msg["type"] == "removeEvent"
+        assert msg["query"]["id"] == "foo"
+        assert msg["eventType"] == "some-event"
+        assert listener_id not in polyplug.LISTENERS
+
+
+def test_plug_decorator_register():
+    """
+    Ensure the expected register JSON message is emitted when the decorator is
+    used on a user's function.
+    """
+    with mock.patch("builtins.print") as mock_print:
+
+        @polyplug.plug(polyplug.Query(id="foo"), "some-event")
+        def test_fn(event):
+            return "It works!"
+
+        assert mock_print.call_count == 1
+        msg = json.loads(mock_print.call_args.args[0])
+        assert msg["type"] == "registerEvent"
+        assert msg["listener"] == polyplug.get_listener_id(
+            polyplug.Query(id="foo"), "some-event", test_fn
+        )
+        assert msg["query"]["id"] == "foo"
+        assert msg["eventType"] == "some-event"
+        result = polyplug.LISTENERS[msg["listener"]](None)
+        assert result == "It works!"
+
+
+def test_receive_bad_json():
+    """
+    If the receive function get a non-JSON message, it complains with an error
+    message of its own.
+    """
+    with mock.patch("builtins.print") as mock_print:
+        polyplug.receive("not VALID")
+        assert mock_print.call_count == 1
+        msg = json.loads(mock_print.call_args.args[0])
+        assert msg["type"] == "error"
+        assert msg["context"]["type"] == "JSONDecodeError"
+        assert (
+            msg["context"]["msg"]
+            == "Expecting value: line 1 column 1 (char 0)"
+        )
+
+
+def test_receive_incomplete_message():
+    """
+    If the receive function gets valid JSON that is the wrong "shape", it
+    complains with a message of its own.
+    """
+    with mock.patch("builtins.print") as mock_print:
+        polyplug.receive(json.dumps({"foo": "bar"}))
+        assert mock_print.call_count == 1
+        msg = json.loads(mock_print.call_args.args[0])
+        assert msg["type"] == "error"
+        assert msg["context"]["type"] == "ValueError"
+        assert (
+            msg["context"]["msg"]
+            == 'Incomplete message received: {"foo": "bar"}'
+        )
+
+
+def test_receive_no_listener():
+    """
+    If the receive function gets a valid message but the referenced listener
+    function doesn't exist, it complains with a message of its own.
+    """
+    with mock.patch("builtins.print") as mock_print:
+        polyplug.receive(
+            json.dumps(
+                {
+                    "type": "some-event",
+                    "target": DOM_FROM_JSON,
+                    "listener": "does_not_exist",
+                }
+            )
+        )
+        assert mock_print.call_count == 1
+        msg = json.loads(mock_print.call_args.args[0])
+        assert msg["type"] == "error"
+        assert msg["context"]["type"] == "RuntimeError"
+        assert msg["context"]["msg"] == "No such listener: does_not_exist"
+
+
+def test_receive_for_registered_listener():
+    """
+    If the receive function gets a valid message for an existing event,
+    the function is called with the expected DomEvent object.
+    """
+    with mock.patch("builtins.print") as mock_print:
+        # To be called when there's user defined work to be done.
+        mock_work = mock.MagicMock()
+
+        @polyplug.plug(polyplug.Query(id="foo"), "some-event")
+        def test_fn(event):
+            """
+            Do some work as if an end user.
+            """
+            # Expected eventType.
+            if event.event_type != "some-event":
+                raise ValueError("It broke! Wrong event.")
+            # The target represents the expected element.
+            if event.target.tagName != "div":
+                raise ValueError("It broke! Wrong target root.")
+            # It's possible to find one of the expected child nodes.
+            ul = event.target.find(".list")
+            if ul.tagName != "ul":
+                raise ValueError("It broke! Wrong child nodes.")
+            # Signal things worked out. ;-)
+            mock_work("It works!")
+
+        assert mock_print.call_count == 1
+        mock_print.reset_mock()
+
+        listener_id = polyplug.get_listener_id(
+            polyplug.Query(id="foo"), "some-event", test_fn
+        )
+
+        polyplug.receive(
+            json.dumps(
+                {
+                    "type": "some-event",
+                    "target": DOM_FROM_JSON,
+                    "listener": listener_id,
+                }
+            )
+        )
+
+        mock_work.assert_called_once_with("It works!")
