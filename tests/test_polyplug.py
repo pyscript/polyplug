@@ -959,7 +959,11 @@ def test_update():
 
 
 def test_remove():
-    """ """
+    """
+    The expected message is emitted when the referenced listener is marked to
+    be removed from handling the event type, for the nodes in the DOM matched
+    by the Query object.
+    """
     with mock.patch("builtins.print") as mock_print:
 
         @polyplug.plug(polyplug.Query(id="foo"), "some-event")
