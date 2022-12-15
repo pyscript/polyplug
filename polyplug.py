@@ -668,15 +668,16 @@ def remove(query, event_type, listener):
 
 def plug(query, event_type):
     """
-    A decorator wrapper to plug a Python function into a DOM event specified
-    by a query to match elements in the DOM tree, and an event_type (e.g.
-    "click").
+    Plug a Python function into a DOM event.
+
+    The event is specified by a query to match elements in the DOM tree, and
+    an event_type (e.g. "click").
 
     Returns a decorator function that wraps the user's own function that is
     to be registered.
 
     This decorator wrapper function creates a closure in which various
-    contextual aspects are contained.
+    contextual aspects are contained and run.
     """
 
     def decorator(fn):
