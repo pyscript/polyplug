@@ -338,14 +338,6 @@ const polyplug = function() {
     Event handling functions for PolyPlug.
     **************************************************************************/
 
-    function getEventKey(query, eventType, listener) {
-        /*
-        Return a unique key to identify a query/eventType/listener combination.
-        */
-        const sortedQuery = Object.keys(query).sort().reduce((result, key) => (result[key] = query[key], result), {});
-        return JSON.stringify([sortedQuery, eventType, listener]);
-    }
-
     function registerEvent(query, eventType, listener) {
         /*
         Register an event listener, given:
@@ -371,8 +363,7 @@ const polyplug = function() {
             const send = new CustomEvent("polyplugSend", {detail: detail});
             document.dispatchEvent(send);
         }
-        const eventKey = getEventKey(query, eventType, listener);
-        REGISTERED_EVENTS[eventKey] = eventHandler;
+        REGISTERED_EVENTS[listener] = eventHandler;
         elements.forEach(function(element) {
             element.addEventListener(eventType, eventHandler);
         });
@@ -387,13 +378,12 @@ const polyplug = function() {
         * the name of the listener to call in the remote interpreter.
         */
         const elements = getElements(query);
-        const eventKey = getEventKey(query, eventType, listener);
-        const eventHandler = REGISTERED_EVENTS[eventKey];
+        const eventHandler = REGISTERED_EVENTS[listener];
         if (eventHandler) {
             elements.forEach(function(element) {
                 element.removeEventListener(eventType, eventHandler);
             });
-            delete REGISTERED_EVENTS[eventKey];
+            delete REGISTERED_EVENTS[listener];
         }
     }
 
