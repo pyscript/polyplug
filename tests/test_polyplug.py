@@ -1,7 +1,6 @@
 """
 Exercise PolyPlug.
 """
-import builtins
 import copy
 import json
 import pytest

@@ -41,9 +41,11 @@ Common tasks are scripted by a Makefile (tested on Linux):
 $ make
 There's no default Makefile target right now. Try:
 
-make minify - minify the source.
+make flake8 - run the flake8 Python checker.
 make testjs - run the JavaScript test suite.
 make testpy - run the Python test suite.
+make minify - minify the project.
+make tidy - Tidy the Python code with black.
 ```
 
 ## Running the tests
@@ -57,11 +59,15 @@ Pythonic aspects of our code.
 
 ## How it works
 
+### JavaScript
+
 Methods of the object returned by the `polyplug` function facilitate all
 operations.
 
 ```JS
 const plug = polyplug();
 ```
+
+### Python
 
 Flesh this out.

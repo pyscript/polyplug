@@ -453,7 +453,6 @@ class ElementNode(Node):
         # Validate selector.
         if not selector:
             raise ValueError("Missing selector.")
-        result = None
         if selector[0] == ".":
             # Select by unique id.
             target_id = selector[1:]
