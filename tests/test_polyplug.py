@@ -141,61 +141,57 @@ def test_query_id():
     """
     A query object based on HTML id.
     """
-    q = polyplug.Query(id="myId")
+    q = polyplug.Query("#myId")
     assert q.id == "myId"
+    assert q.raw_query == "#myId"
+    with pytest.raises(ValueError):
+        polyplug.Query("#")
 
 
 def test_query_tag():
     """
     A query object based on HTML tag.
     """
-    q = polyplug.Query(tag="p")
+    q = polyplug.Query("p")
     assert q.tag == "p"
+    assert q.raw_query == "p"
 
 
 def test_query_classname():
     """
     A query object based on CSS class.
     """
-    q = polyplug.Query(classname="my-css-class")
+    q = polyplug.Query(".my-css-class")
     assert q.classname == "my-css-class"
+    assert q.raw_query == ".my-css-class"
+    with pytest.raises(ValueError):
+        polyplug.Query(".")
 
 
 def test_query_css():
     """
     A query object based on CSS selector.
     """
-    q = polyplug.Query(css="p.myClass")
+    q = polyplug.Query("p.myClass")
     assert q.css == "p.myClass"
+    assert q.raw_query == "p.myClass"
 
 
 def test_query_as_dict():
     """
     A JSON serializable dict object is returned.
     """
-    q = polyplug.Query(id="myId")
+    q = polyplug.Query("#myId")
     expected = json.dumps(q.as_dict)
     assert expected == '{"id": "myId"}'
 
 
-def test_query_invalid_missing_type():
+def test_query_invalid_missing_selector():
     """
     An invalid instantiation of Query results in a ValueError.
-
-    Missing one of the expected query specification types.
     """
     with pytest.raises(ValueError):
-        polyplug.Query(foo="bar")
-
-
-def test_query_invalid_too_many_types():
-    """
-    An invalid instantiation of Query results in a ValueError.
-
-    There should only be one type of query specification.
-    """
-    with pytest.raises(ValueError):
-        polyplug.Query(id="myId", tag="p")
+        polyplug.Query("")
 
 
 def test_dom_event():
@@ -393,19 +389,19 @@ def test_element_node_find():
     with pytest.raises(ValueError):
         n.find(selector)
     # Must be a valid id.
-    selector = ".my-id"  # valid
+    selector = "#my-id"  # valid
     n._find_by_id = mock.MagicMock()
     n.find(selector)
     n._find_by_id.assert_called_once_with("my-id")
-    selector = "."  # in-valid
+    selector = "#"  # in-valid
     with pytest.raises(ValueError):
         n.find(selector)
     # Must be a valid class.
-    selector = "#my-class"  # valid
+    selector = ".my-class"  # valid
     n._find_by_class = mock.MagicMock()
     n.find(selector)
     n._find_by_class.assert_called_once_with("my-class")
-    selector = "#"  # in-valid
+    selector = "."  # in-valid
     with pytest.raises(ValueError):
         n.find(selector)
     # Must be a valid tagName.
@@ -425,15 +421,15 @@ def test_element_node_find_by_id():
     """
     # Will return itself as the first match.
     n = polyplug.ElementNode(tagName="div", attributes={"id": "foo"})
-    assert n == n.find(".foo")
+    assert n == n.find("#foo")
     # Will return the expected child.
     n = polyplug.ElementNode(tagName="div")
     n.innerHTML = "<ul><li>Nope</li><li id='foo'>Yup</li></ul>"
-    result = n.find(".foo")
+    result = n.find("#foo")
     assert isinstance(result, polyplug.ElementNode)
     assert result.innerHTML == "Yup"
     # Returns None if no match.
-    assert n.find(".bar") is None
+    assert n.find("#bar") is None
 
 
 def test_element_node_find_by_class():
@@ -445,11 +441,11 @@ def test_element_node_find_by_class():
     n = polyplug.ElementNode(tagName="div", attributes={"class": "foo"})
     assert [
         n,
-    ] == n.find("#foo")
+    ] == n.find(".foo")
     # Returns expected children (along with itself).
     n = polyplug.ElementNode(tagName="div", attributes={"class": "foo"})
     n.innerHTML = "<ul><li class='foo'>Yup</li><li class='foo'>Yup</li></ul>"
-    result = n.find("#foo")
+    result = n.find(".foo")
     assert len(result) == 3
     assert result[0] == n
     assert result[1].tagName == "li"
@@ -457,7 +453,7 @@ def test_element_node_find_by_class():
     # Returns just expected children (not itself).
     n = polyplug.ElementNode(tagName="div", attributes={"class": "bar"})
     n.innerHTML = "<ul><li class='foo'>Yup</li><li class='foo'>Yup</li></ul>"
-    result = n.find("#foo")
+    result = n.find(".foo")
     assert len(result) == 2
     assert result[0].tagName == "li"
     assert result[1].tagName == "li"
@@ -466,14 +462,14 @@ def test_element_node_find_by_class():
     n.innerHTML = (
         "<ul><li class='foo bar'>Yup</li><li class='foobar'>Nope</li></ul>"
     )
-    result = n.find("#foo")
+    result = n.find(".foo")
     assert len(result) == 2
     assert result[0] == n
     assert result[1].tagName == "li"
     # No match returns an empty list.
     n = polyplug.ElementNode(tagName="div", attributes={"class": "bar"})
     n.innerHTML = "<ul><li class='foo'>Nope</li><li class='foo'>Nope</li></ul>"
-    result = n.find("#baz")
+    result = n.find(".baz")
     assert result == []
 
 
@@ -912,14 +908,14 @@ def test_get_listener_id():
     Return a string containing a hex representation of a sha256 hash of the
     passed in Query, event type and listener function.
     """
-    q = polyplug.Query(id="foo")
+    query = polyplug.Query("#foo")
     event_type = "click"
 
     def test_fn():
         pass
 
-    id_1 = polyplug.get_listener_id(q, event_type, test_fn)
-    id_2 = polyplug.get_listener_id(q, event_type, test_fn)
+    id_1 = polyplug.get_listener_id(query, event_type, test_fn)
+    id_2 = polyplug.get_listener_id(query, event_type, test_fn)
     assert id_1 == id_2  # These should be the same..!
 
 
@@ -946,7 +942,7 @@ def test_update():
     Given a query object and a representation of a target node, the expected
     updateDOM message is emitted, with the correct payload.
     """
-    query = polyplug.Query(id="foo")
+    query = "#foo"
     raw_dom = copy.deepcopy(DOM_FROM_JSON)
     target = polyplug.ElementNode(**raw_dom)
     with mock.patch("builtins.print") as mock_print:
@@ -966,17 +962,17 @@ def test_remove():
     """
     with mock.patch("builtins.print") as mock_print:
 
-        @polyplug.plug(polyplug.Query(id="foo"), "some-event")
+        @polyplug.plug("#foo", "some-event")
         def test_fn(event):
             return "It works!"
 
         assert mock_print.call_count == 1
         listener_id = polyplug.get_listener_id(
-            polyplug.Query(id="foo"), "some-event", test_fn
+            polyplug.Query("#foo"), "some-event", test_fn
         )
         assert listener_id in polyplug.LISTENERS
         mock_print.reset_mock()
-        polyplug.remove(polyplug.Query(id="foo"), "some-event", test_fn)
+        polyplug.remove("#foo", "some-event", test_fn)
         assert mock_print.call_count == 1
         msg = json.loads(mock_print.call_args.args[0])
         assert msg["type"] == "removeEvent"
@@ -992,7 +988,7 @@ def test_plug_decorator_register():
     """
     with mock.patch("builtins.print") as mock_print:
 
-        @polyplug.plug(polyplug.Query(id="foo"), "some-event")
+        @polyplug.plug("#foo", "some-event")
         def test_fn(event):
             return "It works!"
 
@@ -1000,7 +996,7 @@ def test_plug_decorator_register():
         msg = json.loads(mock_print.call_args.args[0])
         assert msg["type"] == "registerEvent"
         assert msg["listener"] == polyplug.get_listener_id(
-            polyplug.Query(id="foo"), "some-event", test_fn
+            polyplug.Query("#foo"), "some-event", test_fn
         )
         assert msg["query"]["id"] == "foo"
         assert msg["eventType"] == "some-event"
@@ -1073,7 +1069,7 @@ def test_receive_for_registered_listener():
         # To be called when there's user defined work to be done.
         mock_work = mock.MagicMock()
 
-        @polyplug.plug(polyplug.Query(id="foo"), "some-event")
+        @polyplug.plug("#foo", "some-event")
         def test_fn(event):
             """
             Do some work as if an end user.
@@ -1085,7 +1081,7 @@ def test_receive_for_registered_listener():
             if event.target.tagName != "div":
                 raise ValueError("It broke! Wrong target root.")
             # It's possible to find one of the expected child nodes.
-            ul = event.target.find(".list")
+            ul = event.target.find("#list")
             if ul.tagName != "ul":
                 raise ValueError("It broke! Wrong child nodes.")
             # Signal things worked out. ;-)
@@ -1095,7 +1091,7 @@ def test_receive_for_registered_listener():
         mock_print.reset_mock()
 
         listener_id = polyplug.get_listener_id(
-            polyplug.Query(id="foo"), "some-event", test_fn
+            polyplug.Query("#foo"), "some-event", test_fn
         )
 
         polyplug.receive(

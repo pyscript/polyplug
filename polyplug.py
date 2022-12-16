@@ -10,37 +10,62 @@ LISTENERS = {}
 
 class Query:
     """
+    Encapsulates a query to match elements in the DOM.
+
     A query must have one, and only one, of:
 
     * id - a unique element id (e.g. "myElementId").
-    * tag - a tag name (e.g. "p").
     * classname - a class (e.g. "my-css-class").
+    * tag - a tag name (e.g. "p").
     * css - a css selector (e.g "p.className").
 
     These types of query relate to the four ways in which elements in an HTML
     document may be identified.
 
+    A Query is instantiated with a string using the following common syntax
+    for identifying the different types of query:
+
+    * #id-name - Starting with a hash indicates an element's unique id.
+    * .class-name - Starting with a full stop indicates a CSS class name.
+    * p - A string of only alphabetical characters is treated as a tag name.
+    * p.classname - Anything else is assumed to be a css selector.
+
     E.g.
 
-    q = Query(id="myElementID")
+    q = Query(".myElementID")
     """
 
-    # Query type definitions
-    ID = "id"
-    TAG = "tag"
-    CLASSNAME = "classname"
-    CSS = "css"
-    QUERY_TYPES = (ID, TAG, CLASSNAME, CSS)
+    def __init__(self, query):
+        """
+        Validate and interpret the query string.
+        """
+        self.raw_query = query
+        target = None
+        if query[:1] == "#":
+            # Unique id.
+            target = query[1:]
+            if target:
+                self.query_type = "id"
+            else:
+                raise ValueError("Invalid id.")
+        elif query[:1] == ".":
+            # CSS class.
+            target = query[1:]
+            if target:
+                self.query_type = "classname"
+            else:
+                raise ValueError("Invalid class.")
+        elif query.isalpha():
+            # tagName.
+            target = query
+            self.query_type = "tag"
+        else:
+            # CSS selector.
+            target = query
+            self.query_type = "css"
 
-    def __init__(self, **kwargs):
-        """
-        Raise a ValueError if it's not the case that one, and only one of the
-        expected types of query is given.
-        """
-        query_type = [key for key in kwargs if key in self.QUERY_TYPES]
-        if len(query_type) == 1:
-            self.query_type = query_type[0]
-            setattr(self, self.query_type, kwargs[self.query_type])
+        if target:
+            setattr(self, self.query_type, target)
         else:
             raise ValueError("Bad query specification.")
 
@@ -443,9 +468,9 @@ class ElementNode(Node):
         representing nodes that match "selector" string. The selector
         string understands:
 
-        * .my-id - returns the first ElementNode with the id "my-id". Returns
+        * #my-id - returns the first ElementNode with the id "my-id". Returns
           None if no match is found.
-        * #my-class - returns a list containing elements with the class
+        * .my-class - returns a list containing elements with the class
           "my-class". Returns an empty list if no match is found.
         * li - returns a list containing elements with the tagName "li".
           Returns an empty list if no match is found.
@@ -453,14 +478,14 @@ class ElementNode(Node):
         # Validate selector.
         if not selector:
             raise ValueError("Missing selector.")
-        if selector[0] == ".":
+        if selector[0] == "#":
             # Select by unique id.
             target_id = selector[1:]
             if target_id:
                 return self._find_by_id(target_id)
             else:
                 raise ValueError("Invalid id.")
-        elif selector[0] == "#":
+        elif selector[0] == ".":
             # Select by css class.
             target_class = selector[1:]
             if target_class:
@@ -615,7 +640,7 @@ def get_listener_id(query, event_type, listener):
     Given a query, event type and listener function, generate a unique id from
     this combination.
     """
-    raw = str(query.as_dict) + event_type + listener.__name__
+    raw = query.raw_query + event_type + listener.__name__
     return binascii.hexlify(
         hashlib.sha256(raw.encode("utf-8")).digest()
     ).decode("ascii")
@@ -637,11 +662,12 @@ def update(query, target):
     Update the DOM so the node[s] matching the query are mutated to the state
     defined by the target node.
     """
+    q = Query(query)
     builtins.print(
         json.dumps(
             {
                 "type": "updateDOM",
-                "query": query.as_dict,
+                "query": q.as_dict,
                 "target": target.as_dict,
             }
         )
@@ -653,13 +679,14 @@ def remove(query, event_type, listener):
     Remove the referenced listener from handling the event_type from the
     node[s] matching the query.
     """
-    listener_id = get_listener_id(query, event_type, listener)
+    q = Query(query)
+    listener_id = get_listener_id(q, event_type, listener)
     del LISTENERS[listener_id]
     builtins.print(
         json.dumps(
             {
                 "type": "removeEvent",
-                "query": query.as_dict,
+                "query": q.as_dict,
                 "eventType": event_type,
             }
         )
@@ -679,6 +706,7 @@ def plug(query, event_type):
     This decorator wrapper function creates a closure in which various
     contextual aspects are contained and run.
     """
+    q = Query(query)
 
     def decorator(fn):
         """
@@ -688,12 +716,12 @@ def plug(query, event_type):
         def wrapper(event):
             return fn(event)
 
-        listener_id = get_listener_id(query, event_type, wrapper)
+        listener_id = get_listener_id(q, event_type, wrapper)
         builtins.print(
             json.dumps(
                 {
                     "type": "registerEvent",
-                    "query": query.as_dict,
+                    "query": q.as_dict,
                     "eventType": event_type,
                     "listener": listener_id,
                 }
