@@ -87,7 +87,7 @@ const polyplug = function() {
         if (Object.keys(attrs).length > 0) {
             obj.attributes = attrs;
         }
-        if (obj.tagName === "textarea") {
+        if (node.value) {
             obj.value = node.value;
         }
         const childNodes = node.childNodes;
@@ -133,7 +133,7 @@ const polyplug = function() {
                         node.setAttribute(attribute[0], attribute[1]);
                     })
                 }
-                if (obj.tagName === "textarea") {
+                if (obj.value) {
                     node.value = obj.value;
                 }
                 break;
@@ -362,6 +362,8 @@ const polyplug = function() {
             });
             const send = new CustomEvent("polyplugSend", {detail: detail});
             document.dispatchEvent(send);
+            e.preventDefault();
+            return false;
         }
         REGISTERED_EVENTS[listener] = eventHandler;
         elements.forEach(function(element) {

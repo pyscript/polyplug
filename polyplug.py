@@ -367,9 +367,7 @@ class ElementNode(Node):
         super().__init__(**kwargs)
         self.tagName = kwargs["tagName"]
         self.attributes = Attributes(kwargs.get("attributes", {}))
-        if self.tagName == "textarea":
-            # The textarea doesn't have children. Only a text value.
-            self.value = kwargs.get("value", "")
+        self.value = kwargs.get("value")
 
     def add_child(self, child):
         """
@@ -458,8 +456,9 @@ class ElementNode(Node):
         }
         if self.attributes:
             result["attributes"] = self.attributes
-        if self.tagName == "textarea":
-            result["value"] = self.value
+        value = getattr(self, "value", None)
+        if value:
+            result["value"] = value
         return result
 
     def find(self, selector):

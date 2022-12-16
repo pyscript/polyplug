@@ -71,8 +71,8 @@ DOM_FROM_JSON = {
                     "attributes": {
                         "type": "text",
                         "name": "testInput",
-                        "value": "test",
                     },
+                    "value": "test",
                     "childNodes": [],
                 },
                 {
