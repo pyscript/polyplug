@@ -1,5 +1,7 @@
 black
 flake8
+myst-parser
 pytest
 pytest-cov
 pytest-random-order
+sphinx~=5.3
