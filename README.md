@@ -45,9 +45,11 @@ $ pip install -r requirements.txt
 ```
 
 For JavaScript development, just edit the file and run the tests. _There are
-deliberately no dependencies or complex tooling to ensure simplicity_.
+deliberately no dependencies or complex tooling to ensure simplicity_. Should
+you wish to minify the JavaScript source, you can (optionally) install
+[uglifyjs](https://github.com/mishoo/UglifyJS).
 
-Common tasks are scripted by a Makefile (tested on Linux):
+Common tasks are scripted by a Makefile (tested on Linux and Mac):
 
 ```
 $ make
@@ -57,7 +59,8 @@ make flake8 - run the flake8 Python checker.
 make testjs - run the JavaScript test suite.
 make testpy - run the Python test suite.
 make minify - minify the project.
-make tidy - Tidy the Python code with black.
+make tidy - tidy the Python code with black.
+make docs - use Sphinx to create project documentation.
 ```
 
 ## Running the tests
