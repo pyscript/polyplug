@@ -3,6 +3,8 @@
 PolyPlug is a browser based framework for linking the DOM and DOM based events
 with scripting languages compiled to WASM.
 
+For more information [please read our documentation](https://polyplug.readthedocs.io/en/latest/) (the source for which is in the `./docs` directory).
+
 It is:
 
 * Agnostic of the interpreter receiving and responding to DOM events.
@@ -66,18 +68,3 @@ JavaScript aspects of our code.
 
 For similar reasons, we use [PyTest](https://pytest.org/) to exercise the
 Pythonic aspects of our code.
-
-## How it works
-
-### JavaScript
-
-Methods of the object returned by the `polyplug` function facilitate all
-operations.
-
-```JS
-const plug = polyplug();
-```
-
-### Python
-
-Flesh this out.
