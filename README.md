@@ -1,4 +1,6 @@
-# PolyPlug 🦜🔌
+# PolyPlug 🦜🔌 (RETIRED)
+
+## This was a successful experiment: it helped us to learn. Lessons have been integrated into PyScript. This archived repository is kept for posterity.
 
 PolyPlug is a browser based framework for linking the DOM and DOM based events
 with scripting languages compiled to WASM.
